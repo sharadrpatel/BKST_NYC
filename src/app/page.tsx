@@ -21,7 +21,7 @@ export default async function LoginPage({ searchParams }: Props) {
       }}
     >
       <h1 style={{ fontSize: "2rem", fontWeight: 700, letterSpacing: "-0.02em" }}>
-        BKST NYC
+        The Akshar Times
       </h1>
       <p style={{ color: "var(--color-text-muted)", fontSize: "0.95rem" }}>
         Enter your BKID to play.

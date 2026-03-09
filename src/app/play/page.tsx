@@ -86,7 +86,7 @@ export default async function PlayPage() {
         gap: "1.5rem",
       }}
     >
-      <h1 style={{ fontSize: "1.5rem", fontWeight: 700 }}>BKST NYC</h1>
+      <h1 style={{ fontSize: "1.5rem", fontWeight: 700 }}>The Akshar Times</h1>
       <Board
         sessionId={sessionId}
         words={wordData}

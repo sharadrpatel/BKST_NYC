@@ -13,7 +13,7 @@ import "dotenv/config";
 import { db } from "../src/db";
 import * as schema from "../src/db/schema";
 
-const PUZZLE_TITLE = "BKST Retreat 2024";
+const PUZZLE_TITLE = "The Akshar Times — Puzzle 1";
 
 const CATEGORIES = [
   {

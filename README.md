@@ -1,6 +1,6 @@
-# BKST NYC
+# The Akshar Times
 
-Custom Connections-style game deployed on Vercel.
+Custom Connections-style word puzzle game deployed on Vercel.
 
 ## Core requirements
 

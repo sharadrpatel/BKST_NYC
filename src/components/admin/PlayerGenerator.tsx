@@ -14,7 +14,7 @@ const inputStyle: React.CSSProperties = {
 
 export default function PlayerGenerator() {
   const [isPending, startTransition] = useTransition();
-  const [prefix, setPrefix] = useState("BKST");
+  const [prefix, setPrefix] = useState("AKT");
   const [count, setCount] = useState(10);
   const [codes, setCodes] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -48,7 +48,7 @@ export default function PlayerGenerator() {
               style={{ ...inputStyle, width: 130 }}
               value={prefix}
               onChange={(e) => setPrefix(e.target.value.toUpperCase())}
-              placeholder="BKST"
+              placeholder="AKT"
               maxLength={12}
               required
             />
