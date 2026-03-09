@@ -9,11 +9,9 @@
  *   - 10 test players with unique access codes
  */
 
-import { drizzle } from "drizzle-orm/vercel-postgres";
-import { sql } from "@vercel/postgres";
+import "dotenv/config";
+import { db } from "../src/db";
 import * as schema from "../src/db/schema";
-
-const db = drizzle(sql, { schema });
 
 const PUZZLE_TITLE = "BKST Retreat 2024";
 
