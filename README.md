@@ -1,9 +1,20 @@
 # BKST NYC
 
-Custom Connections-style game with:
-- player ID access
-- one scored attempt per player
-- leaderboard
-- admin puzzle management
+Custom Connections-style game deployed on Vercel.
 
-Deployment target: Vercel
+## Core requirements
+
+- Pre-assigned player ID access only
+- One scored attempt per ID
+- Connections-style gameplay
+- Score based on time and wrong guesses
+- Public leaderboard
+- Minimal admin puzzle management
+
+## Implementation source of truth
+
+See `docs/plan.md`.
+
+## Agent guidance
+
+See `AGENTS.md`.
