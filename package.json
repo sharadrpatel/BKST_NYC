@@ -1,0 +1,12 @@
+{
+  "name": "bkst-nyc",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Custom Connections-style game",
+  "scripts": {
+    "dev": "echo \"App not scaffolded yet\"",
+    "build": "echo \"App not scaffolded yet\"",
+    "start": "echo \"App not scaffolded yet\"",
+    "lint": "echo \"Lint not configured yet\""
+  }
+}
