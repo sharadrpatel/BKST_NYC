@@ -1,7 +1,7 @@
 // Public Server Component — no auth required.
 // Reads the session cookie only to highlight the current player's row.
 
-import { eq, or, desc, asc } from "drizzle-orm";
+import { eq, or, desc, asc, and } from "drizzle-orm";
 import { db } from "@/db";
 import { gameSessions, players } from "@/db/schema";
 import { getSessionId } from "@/lib/session";
@@ -25,7 +25,10 @@ async function fetchRows() {
     .from(gameSessions)
     .innerJoin(players, eq(gameSessions.player_id, players.id))
     .where(
-      or(eq(gameSessions.status, "WON"), eq(gameSessions.status, "LOST"))
+      and(
+        or(eq(gameSessions.status, "WON"), eq(gameSessions.status, "LOST")),
+        eq(gameSessions.is_test, false)
+      )
     )
     // Primary: score DESC (WON scores > 0 float to top; LOST = 0 sink)
     // Tiebreaker: end_time ASC (faster solver wins)

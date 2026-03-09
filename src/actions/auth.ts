@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { eq } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
 import { db } from "@/db";
 import { players, gameSessions, puzzles } from "@/db/schema";
 import { setSessionCookie } from "@/lib/session";
@@ -10,10 +10,12 @@ import { setSessionCookie } from "@/lib/session";
 // validateAccessCode — pure DB lookup, no side effects
 // ---------------------------------------------------------------------------
 
+export type PlayerMode = "scored" | "test";
+
 export type ValidateResult =
-  | { status: "NEW"; sessionId: null; playerId: string }
-  | { status: "IN_PROGRESS"; sessionId: string; playerId: string }
-  | { status: "DONE"; sessionId: string; playerId: string }
+  | { status: "NEW"; sessionId: null; playerId: string; mode: PlayerMode }
+  | { status: "IN_PROGRESS"; sessionId: string; playerId: string; mode: PlayerMode }
+  | { status: "DONE"; sessionId: string; playerId: string; mode: PlayerMode }
   | { status: "INVALID" };
 
 export async function validateAccessCode(
@@ -27,21 +29,27 @@ export async function validateAccessCode(
 
   if (!player) return { status: "INVALID" };
 
+  const mode: PlayerMode = player.mode;
+
+  // For scored players, look for any existing session.
+  // For test players, look only for an IN_PROGRESS session (completed ones are ignored).
   const [session] = await db
     .select()
     .from(gameSessions)
     .where(eq(gameSessions.player_id, player.id))
+    .orderBy(desc(gameSessions.start_time))
     .limit(1);
 
   if (!session) {
-    return { status: "NEW", sessionId: null, playerId: player.id };
+    return { status: "NEW", sessionId: null, playerId: player.id, mode };
   }
 
   if (session.status === "IN_PROGRESS") {
-    return { status: "IN_PROGRESS", sessionId: session.id, playerId: player.id };
+    return { status: "IN_PROGRESS", sessionId: session.id, playerId: player.id, mode };
   }
 
-  return { status: "DONE", sessionId: session.id, playerId: player.id };
+  // session is WON or LOST
+  return { status: "DONE", sessionId: session.id, playerId: player.id, mode };
 }
 
 // ---------------------------------------------------------------------------
@@ -49,7 +57,7 @@ export async function validateAccessCode(
 // start_time is set server-side here; the client timer is purely cosmetic.
 // ---------------------------------------------------------------------------
 
-async function createSession(playerId: string): Promise<string> {
+async function createSession(playerId: string, isTest: boolean): Promise<string> {
   const [puzzle] = await db
     .select({ id: puzzles.id })
     .from(puzzles)
@@ -65,6 +73,7 @@ async function createSession(playerId: string): Promise<string> {
     .values({
       player_id: playerId,
       puzzle_id: puzzle.id,
+      is_test: isTest,
       start_time: new Date(), // server-authoritative
     })
     .returning({ id: gameSessions.id });
@@ -75,10 +84,16 @@ async function createSession(playerId: string): Promise<string> {
 // ---------------------------------------------------------------------------
 // login — form action bound to the / login page.
 //
-// Flow:
+// Scored flow:
 //   INVALID      → redirect back to / with ?error=invalid
 //   DONE         → session already complete → redirect to /leaderboard
 //   IN_PROGRESS  → existing session → set cookie + redirect to /play
+//   NEW          → create session → set cookie + redirect to /play
+//
+// Test flow:
+//   INVALID      → redirect back to / with ?error=invalid
+//   DONE         → delete old sessions + create fresh session → /play
+//   IN_PROGRESS  → resume existing session → /play
 //   NEW          → create session → set cookie + redirect to /play
 // ---------------------------------------------------------------------------
 
@@ -93,7 +108,8 @@ export async function login(formData: FormData): Promise<never> {
     redirect("/?error=invalid");
   }
 
-  if (result.status === "DONE") {
+  // Scored player — completed game blocks further play
+  if (result.mode === "scored" && result.status === "DONE") {
     redirect("/leaderboard");
   }
 
@@ -101,9 +117,15 @@ export async function login(formData: FormData): Promise<never> {
 
   if (result.status === "IN_PROGRESS") {
     sessionId = result.sessionId;
+  } else if (result.mode === "test" && result.status === "DONE") {
+    // Test player replaying — wipe old completed sessions and start fresh
+    await db
+      .delete(gameSessions)
+      .where(eq(gameSessions.player_id, result.playerId));
+    sessionId = await createSession(result.playerId, true);
   } else {
-    // NEW — create the session; start_time is locked here
-    sessionId = await createSession(result.playerId);
+    // NEW for both modes
+    sessionId = await createSession(result.playerId, result.mode === "test");
   }
 
   await setSessionCookie(sessionId);

@@ -6,7 +6,6 @@ import {
   integer,
   timestamp,
   pgEnum,
-  unique,
 } from "drizzle-orm/pg-core";
 
 // ---------------------------------------------------------------------------
@@ -18,6 +17,8 @@ export const sessionStatusEnum = pgEnum("session_status", [
   "WON",
   "LOST",
 ]);
+
+export const playerModeEnum = pgEnum("player_mode", ["scored", "test"]);
 
 // ---------------------------------------------------------------------------
 // Puzzle — one active puzzle at a time (enforced via is_active)
@@ -66,6 +67,7 @@ export const players = pgTable("players", {
   id: uuid("id").primaryKey().defaultRandom(),
   access_code: text("access_code").notNull().unique(),
   display_name: text("display_name").notNull(),
+  mode: playerModeEnum("mode").notNull().default("scored"),
 });
 
 // ---------------------------------------------------------------------------
@@ -73,31 +75,25 @@ export const players = pgTable("players", {
 // solved_groups stores category IDs the player has correctly solved (JSON array)
 // ---------------------------------------------------------------------------
 
-export const gameSessions = pgTable(
-  "game_sessions",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    player_id: uuid("player_id")
-      .notNull()
-      .references(() => players.id),
-    puzzle_id: uuid("puzzle_id")
-      .notNull()
-      .references(() => puzzles.id),
-    status: sessionStatusEnum("status").notNull().default("IN_PROGRESS"),
-    mistakes: integer("mistakes").notNull().default(0),
-    // JSON array of solved category IDs, e.g. ["uuid1", "uuid2"]
-    solved_groups: text("solved_groups").notNull().default("[]"),
-    start_time: timestamp("start_time", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-    end_time: timestamp("end_time", { withTimezone: true }),
-    score: integer("score"),
-  },
-  (t) => [
-    // One session per player — DB-level enforcement
-    unique("uq_game_sessions_player_id").on(t.player_id),
-  ]
-);
+export const gameSessions = pgTable("game_sessions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  player_id: uuid("player_id")
+    .notNull()
+    .references(() => players.id),
+  puzzle_id: uuid("puzzle_id")
+    .notNull()
+    .references(() => puzzles.id),
+  status: sessionStatusEnum("status").notNull().default("IN_PROGRESS"),
+  is_test: boolean("is_test").notNull().default(false),
+  mistakes: integer("mistakes").notNull().default(0),
+  // JSON array of solved category IDs, e.g. ["uuid1", "uuid2"]
+  solved_groups: text("solved_groups").notNull().default("[]"),
+  start_time: timestamp("start_time", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  end_time: timestamp("end_time", { withTimezone: true }),
+  score: integer("score"),
+});
 
 // ---------------------------------------------------------------------------
 // Guess — every submission recorded (correct and incorrect)

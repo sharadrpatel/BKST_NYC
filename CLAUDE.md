@@ -29,28 +29,28 @@ npx drizzle-kit studio  # DB browser UI
 
 ## App Router Structure
 
-```
 src/
 ├── app/
-│   ├── page.tsx           # Login gateway (access code entry)
-│   ├── play/page.tsx      # Game grid UI
-│   ├── leaderboard/page.tsx
-│   └── admin/
-│       ├── layout.tsx     # Admin password gate
-│       └── page.tsx
+│ ├── page.tsx # Login gateway (access code entry)
+│ ├── play/page.tsx # Game grid UI
+│ ├── leaderboard/page.tsx
+│ └── admin/
+│ ├── layout.tsx # Admin password gate
+│ └── page.tsx
 ├── actions/
-│   ├── auth.ts            # validateAccessCode()
-│   ├── game.ts            # submitGuess()
-│   └── admin.ts           # createPuzzle(), generatePlayers()
+│ ├── auth.ts # validateAccessCode()
+│ ├── game.ts # submitGuess()
+│ └── admin.ts # createPuzzle(), generatePlayers()
 ├── components/
-│   ├── game/              # Board.tsx, WordCard.tsx
-│   └── ui/
+│ ├── game/ # Board.tsx, WordCard.tsx
+│ └── ui/
 ├── db/
-│   ├── schema.ts          # Drizzle schema definitions
-│   └── index.ts           # DB client
+│ ├── schema.ts # Drizzle schema definitions
+│ └── index.ts # DB client
 └── lib/
-    ├── math.ts            # Score formula
-    └── utils.ts
+├── math.ts # Score formula
+└── utils.ts
+
 ```
 
 ## Data Model
@@ -65,11 +65,14 @@ Six tables: `Admin`, `Puzzle` (one active at a time), `Category` (4 per puzzle, 
 - Session locks on 4 mistakes (LOST) or 4 correct groups (WON); score computed server-side at end
 - Score formula: `1000 + max(0, 500 - ((seconds - 30) * 5)) - (mistakes * 150)`
 
+
 ## Environment Variables
 
 ```
-POSTGRES_URL=        # From Vercel Storage integration
-ADMIN_KEY=           # Secret passphrase for /admin route
+
+POSTGRES_URL= # From Vercel Storage integration
+ADMIN_KEY= # Secret passphrase for /admin route
+
 ```
 
 ## Implementation Phases
@@ -81,3 +84,4 @@ Follow `docs/plan.md` phases in order:
 4. Leaderboard & Scoring — Score math, end-game triggers, `/leaderboard` UI
 5. Admin Tooling — Password-gated CRUD for puzzles and bulk player generation
 6. Polish & Deploy — Animations, mobile QA, Vercel deploy
+```

@@ -42,7 +42,7 @@ const CATEGORIES = [
   },
 ];
 
-const PLAYERS = [
+const PLAYERS: Array<{ display_name: string; access_code: string; mode?: "scored" | "test" }> = [
   { display_name: "Alice",   access_code: "ALPHA-101" },
   { display_name: "Bob",     access_code: "BRAVO-202" },
   { display_name: "Carol",   access_code: "CHARLIE-303" },
@@ -53,6 +53,8 @@ const PLAYERS = [
   { display_name: "Hank",    access_code: "HOTEL-808" },
   { display_name: "Iris",    access_code: "INDIA-909" },
   { display_name: "Jack",    access_code: "JULIET-010" },
+  // Test player — replayable, not shown on leaderboard
+  { display_name: "Mahant",  access_code: "MAHANT_1933", mode: "test" },
 ];
 
 async function seed() {
@@ -92,10 +94,10 @@ async function seed() {
   for (const p of PLAYERS) {
     await db
       .insert(schema.players)
-      .values(p)
+      .values({ display_name: p.display_name, access_code: p.access_code, mode: p.mode ?? "scored" })
       .onConflictDoNothing();
   }
-  console.log(`  ✓ ${PLAYERS.length} test players upserted`);
+  console.log(`  ✓ ${PLAYERS.length} players upserted (including test players)`);
 
   console.log("\n✅  Seed complete.");
   process.exit(0);
