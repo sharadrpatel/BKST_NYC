@@ -1,30 +1,4 @@
-"use server";
-
-import { redirect } from "next/navigation";
-import { setAdminCookie } from "@/lib/admin-session";
-
-// ---------------------------------------------------------------------------
-// Login action — bound directly to the form's action prop
-// ---------------------------------------------------------------------------
-
-async function adminLogin(formData: FormData): Promise<never> {
-  const password = (formData.get("password") as string | null)?.trim() ?? "";
-
-  if (
-    !password ||
-    !process.env.ADMIN_KEY ||
-    password !== process.env.ADMIN_KEY
-  ) {
-    redirect("/admin/login?error=1");
-  }
-
-  await setAdminCookie();
-  redirect("/admin");
-}
-
-// ---------------------------------------------------------------------------
-// Page
-// ---------------------------------------------------------------------------
+import { adminLogin } from "@/actions/admin";
 
 interface Props {
   searchParams: Promise<{ error?: string }>;

@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { puzzles, categories, words, players } from "@/db/schema";
-import { assertAdmin, clearAdminCookie } from "@/lib/admin-session";
+import { assertAdmin, clearAdminCookie, setAdminCookie } from "@/lib/admin-session";
 import { generateAccessCode } from "@/lib/utils";
 
 // ---------------------------------------------------------------------------
@@ -139,6 +139,25 @@ export async function generatePlayers(
     .returning({ access_code: players.access_code });
 
   return { codes: inserted.map((r) => r.access_code) };
+}
+
+// ---------------------------------------------------------------------------
+// adminLogin
+// ---------------------------------------------------------------------------
+
+export async function adminLogin(formData: FormData): Promise<never> {
+  const password = (formData.get("password") as string | null)?.trim() ?? "";
+
+  if (
+    !password ||
+    !process.env.ADMIN_KEY ||
+    password !== process.env.ADMIN_KEY
+  ) {
+    redirect("/admin/login?error=1");
+  }
+
+  await setAdminCookie();
+  redirect("/admin");
 }
 
 // ---------------------------------------------------------------------------
