@@ -4,9 +4,28 @@
   "private": true,
   "description": "Custom Connections-style game",
   "scripts": {
-    "dev": "echo \"App not scaffolded yet\"",
-    "build": "echo \"App not scaffolded yet\"",
-    "start": "echo \"App not scaffolded yet\"",
-    "lint": "echo \"Lint not configured yet\""
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "db:push": "drizzle-kit push",
+    "db:studio": "drizzle-kit studio",
+    "db:generate": "drizzle-kit generate",
+    "seed": "tsx scripts/seed.ts"
+  },
+  "dependencies": {
+    "next": "^15.2.3",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "drizzle-orm": "^0.41.0",
+    "@vercel/postgres": "^0.10.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "drizzle-kit": "^0.30.4",
+    "tsx": "^4.19.3",
+    "typescript": "^5"
   }
 }
