@@ -2,6 +2,8 @@
 // Route protection (redirect if no valid session) is enforced here.
 // Category metadata is NEVER included in wordData — only id + text are passed.
 
+export const dynamic = "force-dynamic";
+
 import { redirect } from "next/navigation";
 import { eq, inArray } from "drizzle-orm";
 import { db } from "@/db";

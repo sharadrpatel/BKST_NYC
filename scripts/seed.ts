@@ -53,6 +53,9 @@ const PLAYERS: Array<{ display_name: string; access_code: string; mode?: "scored
   { display_name: "Hank",    access_code: "HOTEL-808" },
   { display_name: "Iris",    access_code: "INDIA-909" },
   { display_name: "Jack",    access_code: "JULIET-010" },
+  // Named scored players with BKIDs
+  { display_name: "Sharad Patel",       access_code: "6824" },
+  { display_name: "Hari-Krishna Patel", access_code: "3856" },
   // Test player — replayable, not shown on leaderboard
   { display_name: "Mahant",  access_code: "MAHANT_1933", mode: "test" },
 ];

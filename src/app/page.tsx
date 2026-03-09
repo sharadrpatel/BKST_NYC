@@ -24,7 +24,7 @@ export default async function LoginPage({ searchParams }: Props) {
         BKST NYC
       </h1>
       <p style={{ color: "var(--color-text-muted)", fontSize: "0.95rem" }}>
-        Enter your access code to play.
+        Enter your BKID to play.
       </p>
 
       <form
@@ -40,7 +40,7 @@ export default async function LoginPage({ searchParams }: Props) {
         <input
           name="code"
           type="text"
-          placeholder="e.g. ALPHA-942"
+          placeholder="e.g. 6824"
           autoComplete="off"
           autoFocus
           required
@@ -66,7 +66,7 @@ export default async function LoginPage({ searchParams }: Props) {
               margin: "-0.25rem 0",
             }}
           >
-            Invalid access code. Try again.
+            Invalid BKID. Try again.
           </p>
         )}
 

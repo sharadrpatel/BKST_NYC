@@ -1,11 +1,13 @@
-import { desc } from "drizzle-orm";
-import { eq } from "drizzle-orm";
+export const dynamic = "force-dynamic";
+
+import { desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
-import { gameSessions, players, puzzles } from "@/db/schema";
+import { gameSessions, players, puzzles, categories, words } from "@/db/schema";
 import { formatDuration } from "@/lib/math";
 import { adminLogout } from "@/actions/admin";
 import PuzzleBuilder from "@/components/admin/PuzzleBuilder";
 import PlayerGenerator from "@/components/admin/PlayerGenerator";
+import PlayerCreator from "@/components/admin/PlayerCreator";
 import PuzzleList from "@/components/admin/PuzzleList";
 
 // ---------------------------------------------------------------------------
@@ -29,15 +31,39 @@ async function fetchSessions() {
 }
 
 async function fetchPuzzles() {
-  return db
-    .select({
-      id: puzzles.id,
-      title: puzzles.title,
-      is_active: puzzles.is_active,
-      created_at: puzzles.created_at,
-    })
+  const allPuzzles = await db
+    .select({ id: puzzles.id, title: puzzles.title, is_active: puzzles.is_active, created_at: puzzles.created_at })
     .from(puzzles)
     .orderBy(desc(puzzles.created_at));
+
+  if (allPuzzles.length === 0) return [];
+
+  const puzzleIds = allPuzzles.map((p) => p.id);
+
+  const allCategories = await db
+    .select()
+    .from(categories)
+    .where(inArray(categories.puzzle_id, puzzleIds));
+
+  const catIds = allCategories.map((c) => c.id);
+  const allWords = catIds.length > 0
+    ? await db.select().from(words).where(inArray(words.category_id, catIds))
+    : [];
+
+  return allPuzzles.map((p) => ({
+    ...p,
+    categories: allCategories
+      .filter((c) => c.puzzle_id === p.id)
+      .sort((a, b) => a.difficulty - b.difficulty)
+      .map((c) => ({
+        id: c.id,
+        title: c.title,
+        difficulty: c.difficulty,
+        words: allWords
+          .filter((w) => w.category_id === c.id)
+          .map((w) => ({ id: w.id, text: w.text })),
+      })),
+  }));
 }
 
 // ---------------------------------------------------------------------------
@@ -192,10 +218,11 @@ export default async function AdminPage() {
         )}
       </section>
 
-      {/* Puzzle builder + Player generator — side by side on desktop, stacked on mobile */}
+      {/* Puzzle builder + Player generator + Player creator */}
       <div className="admin-tools-grid">
         <PuzzleBuilder />
         <PlayerGenerator />
+        <PlayerCreator />
       </div>
 
     </main>

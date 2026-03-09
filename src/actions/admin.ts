@@ -1,9 +1,10 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { eq } from "drizzle-orm";
+import { eq, not, desc } from "drizzle-orm";
+import { revalidatePath } from "next/cache";
 import { db } from "@/db";
-import { puzzles, categories, words, players } from "@/db/schema";
+import { puzzles, categories, words, players, gameSessions } from "@/db/schema";
 import { assertAdmin, clearAdminCookie, setAdminCookie } from "@/lib/admin-session";
 import { generateAccessCode } from "@/lib/utils";
 
@@ -80,7 +81,64 @@ export async function createPuzzle(
     return puzzle.id;
   });
 
+  revalidatePath("/admin");
+
   return { puzzleId };
+}
+
+// ---------------------------------------------------------------------------
+// updatePuzzle
+//
+// Updates title, category names, and word text for an existing puzzle.
+// All IDs must already exist — this never creates or deletes rows.
+// ---------------------------------------------------------------------------
+
+export interface UpdatePuzzleInput {
+  puzzleId: string;
+  title: string;
+  categories: Array<{
+    id: string;
+    title: string;
+    words: Array<{ id: string; text: string }>;
+  }>;
+}
+
+export async function updatePuzzle(data: UpdatePuzzleInput): Promise<void> {
+  await assertAdmin();
+
+  if (!data.title.trim()) throw new Error("Puzzle title is required.");
+  if (data.categories.length !== 4) throw new Error("Exactly 4 categories required.");
+  for (const cat of data.categories) {
+    if (!cat.title.trim()) throw new Error("All category titles are required.");
+    if (cat.words.length !== 4 || cat.words.some((w) => !w.text.trim()))
+      throw new Error("Each category needs exactly 4 non-empty words.");
+  }
+
+  await db.transaction(async (tx) => {
+    await tx
+      .update(puzzles)
+      .set({ title: data.title.trim() })
+      .where(eq(puzzles.id, data.puzzleId));
+
+    for (const cat of data.categories) {
+      await tx
+        .update(categories)
+        .set({ title: cat.title.trim() })
+        .where(eq(categories.id, cat.id));
+
+      for (const word of cat.words) {
+        await tx
+          .update(words)
+          .set({ text: word.text.trim().toUpperCase() })
+          .where(eq(words.id, word.id));
+      }
+    }
+  });
+
+  revalidatePath("/");
+  revalidatePath("/play");
+  revalidatePath("/admin");
+  revalidatePath("/leaderboard");
 }
 
 // ---------------------------------------------------------------------------
@@ -100,6 +158,11 @@ export async function setActivePuzzle(puzzleId: string): Promise<void> {
       .set({ is_active: true })
       .where(eq(puzzles.id, puzzleId));
   });
+
+  revalidatePath("/");
+  revalidatePath("/play");
+  revalidatePath("/admin");
+  revalidatePath("/leaderboard");
 }
 
 // ---------------------------------------------------------------------------
@@ -139,6 +202,103 @@ export async function generatePlayers(
     .returning({ access_code: players.access_code });
 
   return { codes: inserted.map((r) => r.access_code) };
+}
+
+// ---------------------------------------------------------------------------
+// createPlayer
+//
+// Creates a single player with a specific BKID and display name.
+// Throws if the BKID already exists.
+// ---------------------------------------------------------------------------
+
+export async function createPlayer(data: {
+  displayName: string;
+  accessCode: string;
+  mode: "scored" | "test";
+}): Promise<void> {
+  await assertAdmin();
+
+  const code = data.accessCode.trim().toUpperCase();
+  if (!code) throw new Error("BKID is required.");
+  if (!data.displayName.trim()) throw new Error("Display name is required.");
+  if (data.mode !== "scored" && data.mode !== "test")
+    throw new Error("Mode must be scored or test.");
+
+  try {
+    await db.insert(players).values({
+      access_code: code,
+      display_name: data.displayName.trim(),
+      mode: data.mode,
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes("unique") || msg.includes("duplicate") || msg.includes("23505")) {
+      throw new Error(`BKID "${code}" already exists.`);
+    }
+    throw err;
+  }
+
+  revalidatePath("/admin");
+}
+
+// ---------------------------------------------------------------------------
+// deletePuzzle
+//
+// Deletes a puzzle (cascades to categories and words).
+// Blocked if any game sessions reference the puzzle (to preserve score history).
+// If the target is the active puzzle and another puzzle exists, that one is
+// auto-activated before deletion. If no other puzzle exists, the site will
+// have no active puzzle until one is set.
+// ---------------------------------------------------------------------------
+
+export async function deletePuzzle(puzzleId: string): Promise<void> {
+  await assertAdmin();
+
+  const [puzzle] = await db
+    .select()
+    .from(puzzles)
+    .where(eq(puzzles.id, puzzleId))
+    .limit(1);
+
+  if (!puzzle) throw new Error("Puzzle not found.");
+
+  // Block deletion if any sessions reference this puzzle (score history would be lost).
+  const sessionCount = await db.$count(
+    gameSessions,
+    eq(gameSessions.puzzle_id, puzzleId)
+  );
+  if (sessionCount > 0) {
+    throw new Error(
+      `Cannot delete: ${sessionCount} game session(s) reference this puzzle. Data would be lost.`
+    );
+  }
+
+  if (puzzle.is_active) {
+    // Auto-activate the most recently created other puzzle before deleting.
+    const [other] = await db
+      .select({ id: puzzles.id })
+      .from(puzzles)
+      .where(not(eq(puzzles.id, puzzleId)))
+      .orderBy(desc(puzzles.created_at))
+      .limit(1);
+
+    await db.transaction(async (tx) => {
+      if (other) {
+        await tx
+          .update(puzzles)
+          .set({ is_active: true })
+          .where(eq(puzzles.id, other.id));
+      }
+      await tx.delete(puzzles).where(eq(puzzles.id, puzzleId));
+    });
+  } else {
+    await db.delete(puzzles).where(eq(puzzles.id, puzzleId));
+  }
+
+  revalidatePath("/");
+  revalidatePath("/play");
+  revalidatePath("/admin");
+  revalidatePath("/leaderboard");
 }
 
 // ---------------------------------------------------------------------------
