@@ -1,6 +1,6 @@
 export const dynamic = "force-dynamic";
 
-import { desc, eq, inArray } from "drizzle-orm";
+import { desc, eq, inArray, count, asc } from "drizzle-orm";
 import { db } from "@/db";
 import { gameSessions, players, puzzles, categories, words } from "@/db/schema";
 import { adminLogout } from "@/actions/admin";
@@ -11,6 +11,7 @@ import PuzzleList from "@/components/admin/PuzzleList";
 import SessionsTable from "@/components/admin/SessionsTable";
 import LeaderboardReset from "@/components/admin/LeaderboardReset";
 import BulkImport from "@/components/admin/BulkImport";
+import PlayerManager, { type PlayerRow } from "@/components/admin/PlayerManager";
 
 // ---------------------------------------------------------------------------
 // Data fetchers
@@ -32,6 +33,34 @@ async function fetchSessions() {
     .innerJoin(players, eq(gameSessions.player_id, players.id))
     .innerJoin(puzzles, eq(gameSessions.puzzle_id, puzzles.id))
     .orderBy(desc(gameSessions.start_time));
+}
+
+async function fetchPlayers(activePuzzleId: string | null): Promise<PlayerRow[]> {
+  const [allPlayers, sessionCounts, activeSessions] = await Promise.all([
+    db.select().from(players).orderBy(asc(players.display_name)),
+    db
+      .select({ player_id: gameSessions.player_id, cnt: count(gameSessions.id) })
+      .from(gameSessions)
+      .groupBy(gameSessions.player_id),
+    activePuzzleId
+      ? db
+          .select({ player_id: gameSessions.player_id })
+          .from(gameSessions)
+          .where(eq(gameSessions.puzzle_id, activePuzzleId))
+      : Promise.resolve([] as { player_id: string }[]),
+  ]);
+
+  const countMap = new Map(sessionCounts.map((s) => [s.player_id, s.cnt]));
+  const activeSet = new Set(activeSessions.map((s) => s.player_id));
+
+  return allPlayers.map((p) => ({
+    id: p.id,
+    display_name: p.display_name,
+    access_code: p.access_code,
+    mode: p.mode as "scored" | "test",
+    sessionCount: countMap.get(p.id) ?? 0,
+    hasActiveSession: activeSet.has(p.id),
+  }));
 }
 
 async function fetchPuzzles() {
@@ -80,8 +109,12 @@ export default async function AdminPage() {
     fetchPuzzles(),
   ]);
 
-  const totalPlayers = await db.$count(players);
   const activePuzzle = allPuzzles.find((p) => p.is_active);
+  const allPlayers = await fetchPlayers(activePuzzle?.id ?? null);
+
+  const totalPlayers = allPlayers.length;
+  const scoredPlayers = allPlayers.filter((p) => p.mode === "scored").length;
+  const testPlayers = allPlayers.filter((p) => p.mode === "test").length;
   const completed = sessions.filter((s) => s.status !== "IN_PROGRESS").length;
   const inProgress = sessions.filter((s) => s.status === "IN_PROGRESS").length;
 
@@ -112,11 +145,11 @@ export default async function AdminPage() {
       {/* Stats bar */}
       <div style={{ display: "flex", gap: "1.25rem", flexWrap: "wrap" }}>
         {[
-          { label: "Total Players", value: totalPlayers },
+          { label: "Total Players", value: totalPlayers, sub: `${scoredPlayers} scored · ${testPlayers} test` },
           { label: "Completed", value: completed },
           { label: "In Progress", value: inProgress },
           { label: "Active Puzzle", value: activePuzzle?.title ?? "None" },
-        ].map(({ label, value }) => (
+        ].map(({ label, value, sub }) => (
           <div
             key={label}
             style={{
@@ -131,6 +164,11 @@ export default async function AdminPage() {
               {label}
             </p>
             <p style={{ fontSize: "1.1rem", fontWeight: 700 }}>{value}</p>
+            {sub && (
+              <p style={{ fontSize: "0.7rem", color: "var(--color-text-muted)", marginTop: "0.2rem" }}>
+                {sub}
+              </p>
+            )}
           </div>
         ))}
       </div>
@@ -140,6 +178,9 @@ export default async function AdminPage() {
         <h2 style={{ fontSize: "1.1rem", fontWeight: 700 }}>Puzzles</h2>
         <PuzzleList puzzles={allPuzzles} />
       </section>
+
+      {/* Player management */}
+      <PlayerManager initialPlayers={allPlayers} />
 
       {/* Sessions table */}
       <section style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>

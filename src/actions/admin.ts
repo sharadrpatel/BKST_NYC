@@ -454,6 +454,86 @@ export async function importPlayers(csv: string): Promise<ImportResult> {
 }
 
 // ---------------------------------------------------------------------------
+// updatePlayer
+//
+// Updates display_name, access_code, and mode for an existing player.
+// Returns { error } on failure (e.g. duplicate BKID) so the UI can show it.
+// ---------------------------------------------------------------------------
+
+export async function updatePlayer(
+  id: string,
+  data: { displayName: string; accessCode: string; mode: "scored" | "test" }
+): Promise<ActionResult> {
+  await assertAdmin();
+
+  const code = data.accessCode.trim().toUpperCase();
+  if (!code) return { error: "BKID is required." };
+  if (!data.displayName.trim()) return { error: "Display name is required." };
+  if (data.mode !== "scored" && data.mode !== "test") return { error: "Invalid mode." };
+
+  try {
+    const [existing] = await db
+      .select({ id: players.id })
+      .from(players)
+      .where(eq(players.id, id))
+      .limit(1);
+
+    if (!existing) return { error: "Player not found." };
+
+    await db
+      .update(players)
+      .set({ display_name: data.displayName.trim(), access_code: code, mode: data.mode })
+      .where(eq(players.id, id));
+
+    revalidatePath("/admin");
+    revalidatePath("/leaderboard");
+    return {};
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes("unique") || msg.includes("duplicate") || msg.includes("23505")) {
+      return { error: `BKID "${code}" is already in use by another player.` };
+    }
+    return { error: msg };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// deletePlayer
+//
+// Cascade-deletes all game sessions (and their guesses) for the player,
+// then deletes the player record itself. This is irreversible — the UI must
+// show a confirmation with the session count before calling this.
+// ---------------------------------------------------------------------------
+
+export async function deletePlayer(id: string): Promise<ActionResult> {
+  await assertAdmin();
+
+  try {
+    const [player] = await db
+      .select({ id: players.id })
+      .from(players)
+      .where(eq(players.id, id))
+      .limit(1);
+
+    if (!player) return { error: "Player not found." };
+
+    await db.transaction(async (tx) => {
+      // Delete all sessions for this player (guesses cascade via FK).
+      await tx.delete(gameSessions).where(eq(gameSessions.player_id, id));
+      // Delete the player.
+      await tx.delete(players).where(eq(players.id, id));
+    });
+
+    revalidatePath("/");
+    revalidatePath("/admin");
+    revalidatePath("/leaderboard");
+    return {};
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+// ---------------------------------------------------------------------------
 // adminLogin
 // ---------------------------------------------------------------------------
 
