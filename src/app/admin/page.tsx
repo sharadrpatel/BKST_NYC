@@ -3,12 +3,14 @@ export const dynamic = "force-dynamic";
 import { desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { gameSessions, players, puzzles, categories, words } from "@/db/schema";
-import { formatDuration } from "@/lib/math";
 import { adminLogout } from "@/actions/admin";
 import PuzzleBuilder from "@/components/admin/PuzzleBuilder";
 import PlayerGenerator from "@/components/admin/PlayerGenerator";
 import PlayerCreator from "@/components/admin/PlayerCreator";
 import PuzzleList from "@/components/admin/PuzzleList";
+import SessionsTable from "@/components/admin/SessionsTable";
+import LeaderboardReset from "@/components/admin/LeaderboardReset";
+import BulkImport from "@/components/admin/BulkImport";
 
 // ---------------------------------------------------------------------------
 // Data fetchers
@@ -19,6 +21,7 @@ async function fetchSessions() {
     .select({
       sessionId: gameSessions.id,
       playerName: players.display_name,
+      puzzleTitle: puzzles.title,
       status: gameSessions.status,
       score: gameSessions.score,
       mistakes: gameSessions.mistakes,
@@ -27,6 +30,7 @@ async function fetchSessions() {
     })
     .from(gameSessions)
     .innerJoin(players, eq(gameSessions.player_id, players.id))
+    .innerJoin(puzzles, eq(gameSessions.puzzle_id, puzzles.id))
     .orderBy(desc(gameSessions.start_time));
 }
 
@@ -65,35 +69,6 @@ async function fetchPuzzles() {
       })),
   }));
 }
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-const STATUS_COLOR: Record<string, string> = {
-  IN_PROGRESS: "#B0C4EF",
-  WON: "#A0C35A",
-  LOST: "#e94560",
-};
-
-const th: React.CSSProperties = {
-  padding: "0.5rem 0.75rem",
-  textAlign: "left",
-  fontWeight: 600,
-  fontSize: "0.75rem",
-  textTransform: "uppercase",
-  letterSpacing: "0.06em",
-  color: "var(--color-text-muted)",
-  borderBottom: "1px solid var(--color-border)",
-  whiteSpace: "nowrap",
-};
-
-const td: React.CSSProperties = {
-  padding: "0.6rem 0.75rem",
-  fontSize: "0.875rem",
-  borderBottom: "1px solid rgba(255,255,255,0.04)",
-  whiteSpace: "nowrap",
-};
 
 // ---------------------------------------------------------------------------
 // Page
@@ -174,55 +149,16 @@ export default async function AdminPage() {
             ({sessions.length})
           </span>
         </h2>
-
-        {sessions.length === 0 ? (
-          <p style={{ color: "var(--color-text-muted)", fontSize: "0.875rem" }}>No sessions yet.</p>
-        ) : (
-          <div style={{ overflowX: "auto", borderRadius: "var(--radius)", border: "1px solid var(--color-border)" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead>
-                <tr>
-                  {["Player", "Status", "Score", "Mistakes", "Duration", "Started"].map((h) => (
-                    <th key={h} style={th}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {sessions.map((s) => (
-                  <tr key={s.sessionId}>
-                    <td style={td}>{s.playerName}</td>
-                    <td style={td}>
-                      <span
-                        style={{
-                          color: STATUS_COLOR[s.status] ?? "var(--color-text)",
-                          fontWeight: 600,
-                          fontSize: "0.8rem",
-                        }}
-                      >
-                        {s.status}
-                      </span>
-                    </td>
-                    <td style={{ ...td, fontWeight: 700 }}>{s.score ?? "—"}</td>
-                    <td style={td}>{s.mistakes}</td>
-                    <td style={{ ...td, color: "var(--color-text-muted)" }}>
-                      {s.endTime ? formatDuration(s.startTime, s.endTime) : "ongoing"}
-                    </td>
-                    <td style={{ ...td, color: "var(--color-text-muted)" }}>
-                      {new Date(s.startTime).toLocaleString()}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        <SessionsTable sessions={sessions} />
       </section>
 
-      {/* Puzzle builder + Player generator + Player creator */}
+      {/* Puzzle builder + Player tools */}
       <div className="admin-tools-grid">
         <PuzzleBuilder />
         <PlayerGenerator />
         <PlayerCreator />
+        <BulkImport />
+        <LeaderboardReset activePuzzleTitle={activePuzzle?.title ?? null} />
       </div>
 
     </main>

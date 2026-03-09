@@ -28,12 +28,12 @@ export default function PuzzleList({ puzzles }: { puzzles: Puzzle[] }) {
   function handleDelete(id: string) {
     setDeleteError(null);
     startTransition(async () => {
-      try {
-        await deletePuzzle(id);
-        window.location.reload();
-      } catch (err) {
-        setDeleteError((err as Error).message);
+      const result = await deletePuzzle(id);
+      if (result.error) {
+        setDeleteError(result.error);
         setConfirmDeleteId(null);
+      } else {
+        window.location.reload();
       }
     });
   }
@@ -144,40 +144,45 @@ export default function PuzzleList({ puzzles }: { puzzles: Puzzle[] }) {
                   Delete
                 </button>
               ) : (
-                <>
-                  <button
-                    onClick={() => handleDelete(p.id)}
-                    disabled={isPending}
-                    style={{
-                      padding: "0.35rem 0.8rem",
-                      borderRadius: "var(--radius)",
-                      border: "none",
-                      background: "#e94560",
-                      color: "#fff",
-                      fontSize: "0.8rem",
-                      fontWeight: 600,
-                      cursor: isPending ? "not-allowed" : "pointer",
-                      opacity: isPending ? 0.5 : 1,
-                    }}
-                  >
-                    {isPending ? "Deleting…" : "Confirm"}
-                  </button>
-                  <button
-                    onClick={() => setConfirmDeleteId(null)}
-                    disabled={isPending}
-                    style={{
-                      padding: "0.35rem 0.8rem",
-                      borderRadius: "var(--radius)",
-                      border: "1px solid var(--color-border)",
-                      background: "transparent",
-                      color: "var(--color-text-muted)",
-                      fontSize: "0.8rem",
-                      cursor: "pointer",
-                    }}
-                  >
-                    Cancel
-                  </button>
-                </>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "0.3rem" }}>
+                  <p style={{ fontSize: "0.75rem", color: "#e94560", fontWeight: 600, margin: 0 }}>
+                    This will permanently delete ALL scores and results for this puzzle.
+                  </p>
+                  <div style={{ display: "flex", gap: "0.4rem" }}>
+                    <button
+                      onClick={() => handleDelete(p.id)}
+                      disabled={isPending}
+                      style={{
+                        padding: "0.35rem 0.8rem",
+                        borderRadius: "var(--radius)",
+                        border: "none",
+                        background: "#e94560",
+                        color: "#fff",
+                        fontSize: "0.8rem",
+                        fontWeight: 600,
+                        cursor: isPending ? "not-allowed" : "pointer",
+                        opacity: isPending ? 0.5 : 1,
+                      }}
+                    >
+                      {isPending ? "Deleting…" : "Yes, delete everything"}
+                    </button>
+                    <button
+                      onClick={() => setConfirmDeleteId(null)}
+                      disabled={isPending}
+                      style={{
+                        padding: "0.35rem 0.8rem",
+                        borderRadius: "var(--radius)",
+                        border: "1px solid var(--color-border)",
+                        background: "transparent",
+                        color: "var(--color-text-muted)",
+                        fontSize: "0.8rem",
+                        cursor: "pointer",
+                      }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
               )}
             </div>
           </div>

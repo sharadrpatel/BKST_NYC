@@ -9,6 +9,20 @@ import { assertAdmin, clearAdminCookie, setAdminCookie } from "@/lib/admin-sessi
 import { generateAccessCode } from "@/lib/utils";
 
 // ---------------------------------------------------------------------------
+// Shared result types
+// ---------------------------------------------------------------------------
+
+export interface ActionResult {
+  error?: string;
+}
+
+export interface ImportResult {
+  inserted: number;
+  skipped: number;
+  errors: string[];
+}
+
+// ---------------------------------------------------------------------------
 // Difficulty → default color mapping
 // ---------------------------------------------------------------------------
 
@@ -244,61 +258,199 @@ export async function createPlayer(data: {
 // ---------------------------------------------------------------------------
 // deletePuzzle
 //
-// Deletes a puzzle (cascades to categories and words).
-// Blocked if any game sessions reference the puzzle (to preserve score history).
+// Force-deletes a puzzle and ALL dependent data:
+//   guesses (cascade from sessions) → game_sessions → puzzle (cascade to categories/words)
 // If the target is the active puzzle and another puzzle exists, that one is
-// auto-activated before deletion. If no other puzzle exists, the site will
-// have no active puzzle until one is set.
+// auto-activated. If no other puzzle exists, the site will have no active puzzle.
+// Returns { error } on failure instead of throwing, so the UI can display it inline.
 // ---------------------------------------------------------------------------
 
-export async function deletePuzzle(puzzleId: string): Promise<void> {
+export async function deletePuzzle(puzzleId: string): Promise<ActionResult> {
   await assertAdmin();
 
-  const [puzzle] = await db
-    .select()
-    .from(puzzles)
-    .where(eq(puzzles.id, puzzleId))
-    .limit(1);
-
-  if (!puzzle) throw new Error("Puzzle not found.");
-
-  // Block deletion if any sessions reference this puzzle (score history would be lost).
-  const sessionCount = await db.$count(
-    gameSessions,
-    eq(gameSessions.puzzle_id, puzzleId)
-  );
-  if (sessionCount > 0) {
-    throw new Error(
-      `Cannot delete: ${sessionCount} game session(s) reference this puzzle. Data would be lost.`
-    );
-  }
-
-  if (puzzle.is_active) {
-    // Auto-activate the most recently created other puzzle before deleting.
-    const [other] = await db
-      .select({ id: puzzles.id })
+  try {
+    const [puzzle] = await db
+      .select()
       .from(puzzles)
-      .where(not(eq(puzzles.id, puzzleId)))
-      .orderBy(desc(puzzles.created_at))
+      .where(eq(puzzles.id, puzzleId))
       .limit(1);
 
+    if (!puzzle) return { error: "Puzzle not found." };
+
     await db.transaction(async (tx) => {
-      if (other) {
-        await tx
-          .update(puzzles)
-          .set({ is_active: true })
-          .where(eq(puzzles.id, other.id));
+      // 1. Delete all game sessions for this puzzle.
+      //    Guesses cascade-delete automatically (FK onDelete: "cascade").
+      await tx.delete(gameSessions).where(eq(gameSessions.puzzle_id, puzzleId));
+
+      // 2. If this was the active puzzle, promote the next most recent one.
+      if (puzzle.is_active) {
+        const [other] = await tx
+          .select({ id: puzzles.id })
+          .from(puzzles)
+          .where(not(eq(puzzles.id, puzzleId)))
+          .orderBy(desc(puzzles.created_at))
+          .limit(1);
+
+        if (other) {
+          await tx
+            .update(puzzles)
+            .set({ is_active: true })
+            .where(eq(puzzles.id, other.id));
+        }
+        // If no other puzzle exists, the site will have no active puzzle — caller warned via UI.
       }
+
+      // 3. Delete the puzzle. Categories and words cascade-delete automatically.
       await tx.delete(puzzles).where(eq(puzzles.id, puzzleId));
     });
-  } else {
-    await db.delete(puzzles).where(eq(puzzles.id, puzzleId));
+
+    revalidatePath("/");
+    revalidatePath("/play");
+    revalidatePath("/admin");
+    revalidatePath("/leaderboard");
+    return {};
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// deletePlayerResult
+//
+// Removes a single game session (and its guesses) without touching the player.
+// This removes the player's leaderboard entry for that puzzle.
+// ---------------------------------------------------------------------------
+
+export async function deletePlayerResult(sessionId: string): Promise<ActionResult> {
+  await assertAdmin();
+
+  try {
+    const [session] = await db
+      .select({ id: gameSessions.id })
+      .from(gameSessions)
+      .where(eq(gameSessions.id, sessionId))
+      .limit(1);
+
+    if (!session) return { error: "Session not found." };
+
+    // Guesses cascade-delete automatically via FK onDelete: "cascade".
+    await db.delete(gameSessions).where(eq(gameSessions.id, sessionId));
+
+    revalidatePath("/admin");
+    revalidatePath("/leaderboard");
+    return {};
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// resetActivePuzzleLeaderboard
+//
+// Deletes all game sessions (and their guesses) for the currently active puzzle.
+// The puzzle, categories, and words are untouched.
+// Returns { count } on success, { error } on failure.
+// ---------------------------------------------------------------------------
+
+export async function resetActivePuzzleLeaderboard(): Promise<
+  ActionResult & { count?: number }
+> {
+  await assertAdmin();
+
+  try {
+    const [active] = await db
+      .select({ id: puzzles.id, title: puzzles.title })
+      .from(puzzles)
+      .where(eq(puzzles.is_active, true))
+      .limit(1);
+
+    if (!active) return { error: "No active puzzle found." };
+
+    // Count first so we can report how many were deleted.
+    const count = await db.$count(gameSessions, eq(gameSessions.puzzle_id, active.id));
+
+    // Guesses cascade-delete automatically via FK onDelete: "cascade".
+    await db.delete(gameSessions).where(eq(gameSessions.puzzle_id, active.id));
+
+    revalidatePath("/admin");
+    revalidatePath("/leaderboard");
+    return { count };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// importPlayers
+//
+// Bulk-creates players from CSV text. Each line: BKID,Display Name,Mode
+// Mode must be "scored" or "test" (case-insensitive); defaults to "scored" if omitted.
+// Skips duplicate BKIDs silently. Returns inserted/skipped counts and per-row errors.
+// ---------------------------------------------------------------------------
+
+export async function importPlayers(csv: string): Promise<ImportResult> {
+  await assertAdmin();
+
+  const lines = csv
+    .split("\n")
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0 && !l.startsWith("#"));
+
+  if (lines.length === 0) {
+    return { inserted: 0, skipped: 0, errors: ["No valid lines found."] };
   }
 
-  revalidatePath("/");
-  revalidatePath("/play");
+  const errors: string[] = [];
+  const valid: { access_code: string; display_name: string; mode: "scored" | "test" }[] = [];
+  const seen = new Set<string>();
+
+  for (let i = 0; i < lines.length; i++) {
+    const lineNum = i + 1;
+    const parts = lines[i].split(",").map((p) => p.trim());
+
+    const rawCode = parts[0];
+    const rawName = parts[1];
+    const rawMode = (parts[2] ?? "scored").toLowerCase();
+
+    if (!rawCode) {
+      errors.push(`Line ${lineNum}: missing BKID.`);
+      continue;
+    }
+    if (!rawName) {
+      errors.push(`Line ${lineNum}: missing Display Name.`);
+      continue;
+    }
+    if (rawMode !== "scored" && rawMode !== "test") {
+      errors.push(`Line ${lineNum}: mode must be "scored" or "test", got "${parts[2]}".`);
+      continue;
+    }
+
+    const code = rawCode.toUpperCase();
+
+    if (seen.has(code)) {
+      errors.push(`Line ${lineNum}: duplicate BKID "${code}" within this import.`);
+      continue;
+    }
+    seen.add(code);
+
+    valid.push({ access_code: code, display_name: rawName, mode: rawMode });
+  }
+
+  if (valid.length === 0) {
+    return { inserted: 0, skipped: 0, errors };
+  }
+
+  const inserted = await db
+    .insert(players)
+    .values(valid)
+    .onConflictDoNothing()
+    .returning({ access_code: players.access_code });
+
+  const insertedCount = inserted.length;
+  const skipped = valid.length - insertedCount;
+
   revalidatePath("/admin");
-  revalidatePath("/leaderboard");
+  return { inserted: insertedCount, skipped, errors };
 }
 
 // ---------------------------------------------------------------------------
