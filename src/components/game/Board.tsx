@@ -143,11 +143,14 @@ export default function Board({
               zIndex: "10",
             },
             {
-              transform: "translate(0, 0) scale(1.03)",
+              transform: "translate(0, 0) scale(1.02)",
               zIndex: "10",
-              offset: 0.65,
+              offset: 0.7,
             },
-            { transform: "translate(0, 0) scale(1)", zIndex: "10" },
+            {
+              transform: "translate(0, 0) scale(1)",
+              zIndex: "10",
+            },
           ]
         : [
             { transform: `translate(${dx}px, ${dy}px)`, zIndex: "1" },
@@ -155,8 +158,8 @@ export default function Board({
           ];
 
       const anim = card.animate(keyframes, {
-        duration: 850,
-        easing: "cubic-bezier(0.25, 1, 0.5, 1)",
+        duration: 950,
+        easing: "cubic-bezier(0.22, 1, 0.36, 1)",
         fill: "both",
       });
       animations.push(anim);
@@ -171,11 +174,9 @@ export default function Board({
 
     Promise.all(animations.map((a) => a.finished)).then(() => {
       animations.forEach((a) => a.cancel());
-      setTimeout(() => {
-        setSolvingState((prev) =>
-          prev ? { ...prev, phase: "merge" } : null,
-        );
-      }, 160);
+      setSolvingState((prev) =>
+        prev ? { ...prev, phase: "merge" } : null,
+      );
     });
 
     prevRectsRef.current = new Map();
@@ -206,7 +207,7 @@ export default function Board({
           setTimeout(() => setMessage(null), 2000);
         }
       }
-    }, 180);
+    }, 16);
 
     return () => clearTimeout(timer);
   }, [solvingState, router]);
