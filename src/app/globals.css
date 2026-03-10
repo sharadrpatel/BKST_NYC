@@ -27,6 +27,10 @@
   --color-text-on-dark:     #FFFFFF;
   --color-border:           rgba(0, 0, 0, 0.09);
   --color-border-strong:    rgba(0, 0, 0, 0.18);
+  --color-btn-primary:      #1F1F1F;
+  --color-btn-primary-hover: #000000;
+  --color-btn-disabled:     #D6D3CE;
+  --color-btn-disabled-text: #8A8782;
   --color-error:            #C0392B;
   --color-error-bg:         #FEF2F2;
   --color-success:          #2E7D32;
@@ -298,15 +302,24 @@ button {
    ============================================================ */
 
 .btn-login {
-  transition: opacity var(--transition), transform var(--transition-fast);
+  transition: background var(--transition), transform var(--transition-fast), box-shadow var(--transition-fast);
 }
 
-.btn-login:hover {
-  opacity: 0.88;
+.btn-login:hover:not(:disabled) {
+  background: var(--color-btn-primary-hover) !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
 }
 
-.btn-login:active {
+.btn-login:active:not(:disabled) {
   transform: scale(0.98);
+  box-shadow: none;
+}
+
+.btn-login:disabled {
+  background: var(--color-btn-disabled) !important;
+  color: var(--color-btn-disabled-text) !important;
+  cursor: not-allowed;
 }
 
 /* ============================================================

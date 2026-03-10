@@ -143,11 +143,11 @@ export default async function LoginPage({ searchParams }: Props) {
             className="btn-login"
             style={{
               padding: "0.85rem",
-              borderRadius: "var(--radius)",
+              borderRadius: "var(--radius-md)",
               border: "none",
-              background: "var(--color-card-selected)",
+              background: "var(--color-btn-primary)",
               color: "var(--color-text-on-dark)",
-              fontWeight: 700,
+              fontWeight: 600,
               fontSize: "1rem",
               cursor: "pointer",
               letterSpacing: "0.02em",

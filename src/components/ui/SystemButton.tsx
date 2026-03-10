@@ -24,7 +24,7 @@ export default function SystemButton({
 
   const variants: Record<string, React.CSSProperties> = {
     primary: {
-      background: "var(--color-card-selected)",
+      background: "var(--color-btn-primary)",
       color: "var(--color-text-on-dark)",
     },
     ghost: {
@@ -40,7 +40,13 @@ export default function SystemButton({
   };
 
   const disabledStyle: React.CSSProperties = props.disabled
-    ? { opacity: 0.38, cursor: "not-allowed", pointerEvents: "none" }
+    ? {
+        background: "var(--color-btn-disabled)",
+        color: "var(--color-btn-disabled-text)",
+        opacity: 1,
+        cursor: "not-allowed",
+        pointerEvents: "none",
+      }
     : {};
 
   return (
