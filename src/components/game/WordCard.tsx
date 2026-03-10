@@ -43,7 +43,6 @@ export default function WordCard({
         letterSpacing: "0.06em",
         cursor: "pointer",
         userSelect: "none",
-        transform: selected && !merging ? "scale(1.04)" : "scale(1)",
         aspectRatio: "1 / 1",
         width: "100%",
         display: "flex",

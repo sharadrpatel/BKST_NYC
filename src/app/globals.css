@@ -50,9 +50,12 @@
   --radius-xl:  24px;
 
   /* ── Transitions ─────────────────────────────────── */
-  --transition-fast: 100ms ease;
-  --transition:      150ms ease;
-  --transition-slow: 280ms ease;
+  --ease-out-smooth: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring:     cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-in-out:     cubic-bezier(0.45, 0, 0.55, 1);
+  --transition-fast: 120ms var(--ease-out-smooth);
+  --transition:      200ms var(--ease-out-smooth);
+  --transition-slow: 320ms var(--ease-out-smooth);
 }
 
 html, body {
@@ -80,53 +83,64 @@ button {
    Keyframes
    ============================================================ */
 
-/* Wrong guess — horizontal shake */
+/* Wrong guess — horizontal shake with smooth decay */
 @keyframes shake {
-  0%,  100% { transform: translateX(0); }
-  15%        { transform: translateX(-7px); }
-  30%        { transform: translateX(7px); }
-  45%        { transform: translateX(-5px); }
-  60%        { transform: translateX(5px); }
-  75%        { transform: translateX(-2px); }
+  0%        { transform: translateX(0); }
+  10%       { transform: translateX(-6px); }
+  20%       { transform: translateX(6px); }
+  30%       { transform: translateX(-5px); }
+  40%       { transform: translateX(5px); }
+  50%       { transform: translateX(-3px); }
+  60%       { transform: translateX(3px); }
+  70%       { transform: translateX(-1.5px); }
+  80%       { transform: translateX(1.5px); }
+  90%       { transform: translateX(-0.5px); }
+  100%      { transform: translateX(0); }
 }
 
-/* Card selected — quick pop */
+/* Card selected — springy pop */
 @keyframes pop-in {
-  0%   { transform: scale(0.93); opacity: 0.7; }
-  55%  { transform: scale(1.05); }
-  100% { transform: scale(1);    opacity: 1;   }
+  0%   { transform: scale(0.92); opacity: 0.6; }
+  40%  { transform: scale(1.07); opacity: 1; }
+  70%  { transform: scale(0.98); }
+  100% { transform: scale(1.04); opacity: 1; }
 }
 
 /* Board load — cards fade up with stagger */
 @keyframes fade-in-up {
-  from { opacity: 0; transform: translateY(12px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; transform: translateY(14px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-/* Solved group reveal — expand down */
+/* Solved group reveal — expand from compressed card shape */
 @keyframes group-reveal {
-  from { opacity: 0; transform: scaleY(0.5); }
-  to   { opacity: 1; transform: scaleY(1); }
+  0%   { opacity: 0; transform: scaleY(0.25) scaleX(0.85); }
+  50%  { opacity: 1; transform: scaleY(1.04) scaleX(1.01); }
+  75%  { transform: scaleY(0.97) scaleX(1); }
+  100% { opacity: 1; transform: scaleY(1) scaleX(1); }
 }
 
 /* Mistake dot pulse when newly filled */
 @keyframes mistake-pulse {
   0%   { transform: scale(1); }
-  35%  { transform: scale(1.65); }
-  65%  { transform: scale(0.9); }
+  25%  { transform: scale(1.55); }
+  50%  { transform: scale(0.85); }
+  75%  { transform: scale(1.1); }
   100% { transform: scale(1); }
 }
 
-/* Correct guess — cards compress and fade into the group bar */
+/* Correct guess — cards bounce then compress into the group bar */
 @keyframes card-merge {
-  0%   { transform: scale(1);    opacity: 1; }
-  30%  { transform: scale(1.06); opacity: 1; }
-  100% { transform: scaleY(0.6) scaleX(1.08); opacity: 0; }
+  0%   { transform: scale(1); opacity: 1; }
+  20%  { transform: scale(1.06); opacity: 1; }
+  50%  { transform: scaleY(0.85) scaleX(0.92); opacity: 0.85; }
+  80%  { transform: scaleY(0.3) scaleX(0.5); opacity: 0.2; }
+  100% { transform: scaleY(0.15) scaleX(0.3); opacity: 0; }
 }
 
 /* Generic fade-in for messages */
 @keyframes fade-in {
-  from { opacity: 0; transform: translateY(-3px); }
+  from { opacity: 0; transform: translateY(-4px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 
@@ -136,33 +150,35 @@ button {
 
 .word-card {
   transition:
-    background var(--transition),
-    color var(--transition),
-    transform var(--transition),
-    box-shadow var(--transition);
+    background 280ms var(--ease-out-smooth),
+    color 280ms var(--ease-out-smooth),
+    transform 320ms var(--ease-spring),
+    box-shadow 280ms var(--ease-out-smooth);
+  will-change: transform;
 }
 
 .word-card:hover:not(:disabled):not([aria-pressed="true"]) {
   background: var(--color-card-hover) !important;
-  transform: translateY(-1px);
+  transform: translateY(-1.5px);
   box-shadow: var(--shadow-sm);
 }
 
 .word-card:active:not(:disabled) {
-  transform: scale(0.95) !important;
+  transform: scale(0.96) !important;
+  transition-duration: 80ms;
   box-shadow: none !important;
 }
 
 .word-card.shake {
-  animation: shake 0.52s ease-in-out;
+  animation: shake 0.7s var(--ease-in-out);
 }
 
 .word-card.selected {
-  animation: pop-in 0.18s ease-out forwards;
+  animation: pop-in 0.35s var(--ease-spring) forwards;
 }
 
 .word-card.merging {
-  animation: card-merge 0.4s cubic-bezier(0.33, 1, 0.68, 1) forwards;
+  animation: card-merge 0.55s var(--ease-in-out) forwards;
   pointer-events: none;
 }
 
@@ -171,7 +187,7 @@ button {
    ============================================================ */
 
 .card-entrance {
-  animation: fade-in-up 0.3s ease both;
+  animation: fade-in-up 0.48s var(--ease-out-smooth) both;
 }
 
 /* ============================================================
@@ -179,7 +195,7 @@ button {
    ============================================================ */
 
 .group-reveal {
-  animation: group-reveal 0.38s cubic-bezier(0.34, 1.4, 0.64, 1) both;
+  animation: group-reveal 0.5s var(--ease-out-smooth) both;
   transform-origin: top center;
 }
 
@@ -200,7 +216,7 @@ button {
 .mistake-dot--filled {
   background: var(--color-error);
   border-color: var(--color-error);
-  animation: mistake-pulse 0.42s ease-out;
+  animation: mistake-pulse 0.5s var(--ease-spring);
 }
 
 /* ============================================================
@@ -208,7 +224,7 @@ button {
    ============================================================ */
 
 .game-over-message {
-  animation: fade-in 0.45s ease both;
+  animation: fade-in 0.5s var(--ease-out-smooth) both;
   text-align: center;
   padding: 0.875rem 1.25rem;
   border-radius: var(--radius);

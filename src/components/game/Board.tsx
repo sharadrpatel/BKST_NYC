@@ -139,8 +139,13 @@ export default function Board({
       const keyframes = isSolving
         ? [
             {
-              transform: `translate(${dx}px, ${dy}px) scale(1.06)`,
+              transform: `translate(${dx}px, ${dy}px) scale(1)`,
               zIndex: "10",
+            },
+            {
+              transform: "translate(0, 0) scale(1.03)",
+              zIndex: "10",
+              offset: 0.65,
             },
             { transform: "translate(0, 0) scale(1)", zIndex: "10" },
           ]
@@ -150,8 +155,8 @@ export default function Board({
           ];
 
       const anim = card.animate(keyframes, {
-        duration: 450,
-        easing: "cubic-bezier(0.33, 1, 0.68, 1)",
+        duration: 600,
+        easing: "cubic-bezier(0.25, 1, 0.5, 1)",
         fill: "both",
       });
       animations.push(anim);
@@ -166,9 +171,11 @@ export default function Board({
 
     Promise.all(animations.map((a) => a.finished)).then(() => {
       animations.forEach((a) => a.cancel());
-      setSolvingState((prev) =>
-        prev ? { ...prev, phase: "merge" } : null,
-      );
+      setTimeout(() => {
+        setSolvingState((prev) =>
+          prev ? { ...prev, phase: "merge" } : null,
+        );
+      }, 160);
     });
 
     prevRectsRef.current = new Map();
@@ -199,7 +206,7 @@ export default function Board({
           setTimeout(() => setMessage(null), 2000);
         }
       }
-    }, 450);
+    }, 380);
 
     return () => clearTimeout(timer);
   }, [solvingState, router]);
@@ -250,7 +257,7 @@ export default function Board({
       setSelectedIds([]);
       setIsAnimating(false);
       onDone?.();
-    }, 600);
+    }, 750);
   }
 
   // ── Submission ──────────────────────────────────────────
@@ -593,7 +600,7 @@ export default function Board({
                 }
                 style={{
                   animationDelay: !entranceDone.current
-                    ? `${i * 35}ms`
+                    ? `${i * 50}ms`
                     : undefined,
                   position: "relative",
                 }}
