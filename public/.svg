@@ -1,0 +1,65 @@
+<svg width="960" height="72" viewBox="0 0 960 72" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <g opacity="0.96">
+    <rect y="52" width="960" height="20" fill="#E4C39B"/>
+    <rect y="50" width="960" height="2" fill="#D5AE81"/>
+
+    <g fill="#C89F74">
+      <rect x="12" y="34" width="16" height="18"/>
+      <rect x="30" y="30" width="14" height="22"/>
+      <rect x="48" y="36" width="18" height="16"/>
+      <rect x="68" y="32" width="15" height="20"/>
+      <rect x="86" y="37" width="12" height="15"/>
+      <rect x="104" y="33" width="19" height="19"/>
+    </g>
+
+    <g fill="#D8B286">
+      <circle cx="132" cy="28" r="8"/>
+      <rect x="128" y="36" width="8" height="16"/>
+      <circle cx="150" cy="34" r="6"/>
+      <rect x="147" y="40" width="6" height="12"/>
+      <path d="M168 52L184 34L200 52H168Z"/>
+      <path d="M188 52L204 36L220 52H188Z"/>
+      <path d="M208 52L224 34L240 52H208Z"/>
+    </g>
+
+    <g fill="#E9CCAA" stroke="#D3A879" stroke-width="1.5">
+      <rect x="262" y="30" width="144" height="22"/>
+      <path d="M274 30C274 22 281 16 289 16C297 16 304 22 304 30H274Z"/>
+      <path d="M316 30C316 22 323 16 331 16C339 16 346 22 346 30H316Z"/>
+      <path d="M358 30C358 22 365 16 373 16C381 16 388 22 388 30H358Z"/>
+      <rect x="278" y="36" width="8" height="16"/>
+      <rect x="294" y="36" width="8" height="16"/>
+      <rect x="336" y="36" width="8" height="16"/>
+      <rect x="352" y="36" width="8" height="16"/>
+      <rect x="378" y="36" width="8" height="16"/>
+    </g>
+
+    <g fill="#D8B286">
+      <path d="M430 52H506V34C488 30 476 22 468 10C460 22 448 30 430 34V52Z"/>
+      <rect x="464" y="18" width="8" height="34" fill="#E9CCAA"/>
+      <circle cx="468" cy="8" r="6"/>
+    </g>
+
+    <g stroke="#D3A879" stroke-width="2" fill="#E9CCAA">
+      <rect x="528" y="30" width="184" height="22"/>
+      <path d="M544 30C544 20 552 12 562 12C572 12 580 20 580 30H544Z"/>
+      <path d="M592 30C592 20 600 12 610 12C620 12 628 20 628 30H592Z"/>
+      <path d="M640 30C640 20 648 12 658 12C668 12 676 20 676 30H640Z"/>
+      <path d="M538 52V40H562V52" fill="#D8B286"/>
+      <path d="M600 52V36H632V52" fill="#D8B286"/>
+      <path d="M662 52V40H686V52" fill="#D8B286"/>
+    </g>
+
+    <g fill="#C89F74">
+      <path d="M732 52L740 36L752 40L760 52H732Z"/>
+      <rect x="762" y="38" width="20" height="14"/>
+      <rect x="786" y="34" width="16" height="18"/>
+      <path d="M806 52L822 28L838 52H806Z"/>
+      <path d="M830 52L846 34L860 52H830Z"/>
+      <circle cx="874" cy="28" r="7"/>
+      <rect x="870" y="35" width="8" height="17"/>
+      <circle cx="892" cy="35" r="5"/>
+      <rect x="889" y="40" width="6" height="12"/>
+    </g>
+  </g>
+</svg>

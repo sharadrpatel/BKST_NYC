@@ -340,3 +340,33 @@ button {
     padding: 0.5rem 0.25rem !important;
   }
 }
+
+/* ============================================================
+   Global shell
+   ============================================================ */
+
+.app-shell {
+  min-height: 100vh;
+  position: relative;
+  overflow-x: clip;
+  isolation: isolate;
+}
+
+.app-content {
+  position: relative;
+  z-index: 1;
+  padding-bottom: clamp(120px, 20vw, 260px);
+}
+
+.footer-background {
+  position: fixed;
+  inset-inline: 0;
+  bottom: 0;
+  height: clamp(120px, 20vw, 260px);
+  background-image: url('/footer_bg.png');
+  background-repeat: no-repeat;
+  background-position: center bottom;
+  background-size: 100% auto;
+  pointer-events: none;
+  z-index: 2;
+}

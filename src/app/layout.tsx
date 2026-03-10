@@ -21,7 +21,12 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={inter.variable}>
-      <body>{children}</body>
+      <body>
+        <div className="app-shell">
+          <div className="app-content">{children}</div>
+          <div aria-hidden="true" className="footer-background" />
+        </div>
+      </body>
     </html>
   );
 }
