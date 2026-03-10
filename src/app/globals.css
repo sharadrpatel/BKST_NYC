@@ -355,18 +355,18 @@ button {
 .app-content {
   position: relative;
   z-index: 1;
-  padding-bottom: clamp(120px, 20vw, 260px);
+  padding-bottom: 95px;
 }
 
 .footer-background {
   position: fixed;
   inset-inline: 0;
   bottom: 0;
-  height: clamp(120px, 20vw, 260px);
+  height: 95px;
   background-image: url('/footer_bg.png');
   background-repeat: no-repeat;
   background-position: center bottom;
-  background-size: 100% auto;
+  background-size: auto 95px;
   pointer-events: none;
   z-index: 2;
 }
