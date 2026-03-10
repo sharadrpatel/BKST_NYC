@@ -78,22 +78,15 @@ export async function submitGuess(
 ): Promise<GuessResult> {
   if (wordIds.length !== 4) throw new Error("Exactly 4 word IDs required.");
 
-  // 1. Fetch and validate session
-  const [session] = await db
-    .select()
-    .from(gameSessions)
-    .where(eq(gameSessions.id, sessionId))
-    .limit(1);
+  // Fetch session + words in parallel to cut a round-trip
+  const [sessionRows, wordRows] = await Promise.all([
+    db.select().from(gameSessions).where(eq(gameSessions.id, sessionId)).limit(1),
+    db.select({ id: words.id, categoryId: words.category_id }).from(words).where(inArray(words.id, wordIds)),
+  ]);
 
+  const session = sessionRows[0];
   if (!session) throw new Error("Session not found.");
   if (session.status !== "IN_PROGRESS") throw new Error("Session is no longer active.");
-
-  // 2. Fetch the 4 words and their category assignments
-  const wordRows = await db
-    .select({ id: words.id, categoryId: words.category_id })
-    .from(words)
-    .where(inArray(words.id, wordIds));
-
   if (wordRows.length !== 4) throw new Error("One or more word IDs are invalid.");
 
   // 3. Check if all 4 belong to the same category
@@ -104,13 +97,6 @@ export async function submitGuess(
     return acc;
   }, new Map<string, number>());
   const oneAway = !isCorrect && Array.from(categoryCounts.values()).some((count) => count === 3);
-
-  // 4. Persist the guess BEFORE responding (prevents refresh-loop abuse)
-  await db.insert(guesses).values({
-    session_id: sessionId,
-    word_ids: JSON.stringify(wordIds),
-    is_correct: isCorrect,
-  });
 
   const currentSolved = JSON.parse(session.solved_groups) as string[];
   const currentRevealed = JSON.parse(session.revealed_groups) as string[];
@@ -123,12 +109,12 @@ export async function submitGuess(
     const categoryId = uniqueCategories[0];
     const newSolved = [...currentSolved, categoryId];
 
-    // Fetch the category — safe to expose now that it's solved
-    const [cat] = await db
-      .select()
-      .from(categories)
-      .where(eq(categories.id, categoryId))
-      .limit(1);
+    // Persist guess + fetch category in parallel
+    const [, catRows] = await Promise.all([
+      db.insert(guesses).values({ session_id: sessionId, word_ids: JSON.stringify(wordIds), is_correct: true }),
+      db.select().from(categories).where(eq(categories.id, categoryId)).limit(1),
+    ]);
+    const cat = catRows[0];
 
     // Win condition: all 4 groups are either solved or already revealed
     const isWon = newSolved.length === 4 || newSolved.length + currentRevealed.length === 4;
@@ -190,13 +176,13 @@ export async function submitGuess(
   const newMistakes = session.mistakes + 1;
 
   if (newMistakes >= 4) {
-    // LOST — reveal every remaining unsolved + unrevealed category
     const endTime = new Date();
 
-    const allCats = await db
-      .select()
-      .from(categories)
-      .where(eq(categories.puzzle_id, session.puzzle_id));
+    // Persist guess + fetch all categories in parallel
+    const [, allCats] = await Promise.all([
+      db.insert(guesses).values({ session_id: sessionId, word_ids: JSON.stringify(wordIds), is_correct: false }),
+      db.select().from(categories).where(eq(categories.puzzle_id, session.puzzle_id)),
+    ]);
 
     const alreadyDone = new Set([...currentSolved, ...currentRevealed]);
     const remainingCats = allCats.filter((c) => !alreadyDone.has(c.id));
@@ -247,11 +233,11 @@ export async function submitGuess(
     return { correct: false, gameOver: true, status: "LOST", score, mistakes: newMistakes, revealedAll };
   }
 
-  // Wrong guess, game continues — just record the mistake, no reveal
-  await db
-    .update(gameSessions)
-    .set({ mistakes: newMistakes })
-    .where(eq(gameSessions.id, sessionId));
+  // Wrong guess, game continues — persist guess + update mistakes in parallel
+  await Promise.all([
+    db.insert(guesses).values({ session_id: sessionId, word_ids: JSON.stringify(wordIds), is_correct: false }),
+    db.update(gameSessions).set({ mistakes: newMistakes }).where(eq(gameSessions.id, sessionId)),
+  ]);
 
   return { correct: false, gameOver: false, mistakes: newMistakes, oneAway };
 }
