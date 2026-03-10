@@ -106,9 +106,10 @@ export default async function PlayPage() {
       >
         <h1
           style={{
-            fontSize: "1.15rem",
-            fontWeight: 800,
-            letterSpacing: "-0.03em",
+            fontFamily: "var(--font-chomsky)",
+            fontSize: "1.4rem",
+            fontWeight: 400,
+            letterSpacing: "0.01em",
             color: "var(--color-text)",
           }}
         >
