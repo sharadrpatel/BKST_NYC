@@ -88,6 +88,8 @@ export const gameSessions = pgTable("game_sessions", {
   mistakes: integer("mistakes").notNull().default(0),
   // JSON array of solved category IDs, e.g. ["uuid1", "uuid2"]
   solved_groups: text("solved_groups").notNull().default("[]"),
+  // JSON array of category IDs revealed after wrong guesses (not earned)
+  revealed_groups: text("revealed_groups").notNull().default("[]"),
   start_time: timestamp("start_time", { withTimezone: true })
     .notNull()
     .defaultNow(),

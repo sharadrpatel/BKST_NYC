@@ -5,23 +5,27 @@ import { useRouter } from "next/navigation";
 import WordCard from "./WordCard";
 import SystemButton from "@/components/ui/SystemButton";
 import { submitGuess } from "@/actions/game";
+import { DIFFICULTY_POINTS } from "@/lib/math";
 
 interface Word {
   id: string;
   text: string;
 }
 
-interface SolvedGroup {
+export interface DisplayGroup {
   categoryId: string;
   title: string;
   colorTheme: string;
   wordIds: string[];
+  difficulty: number;
+  /** true = player solved it correctly and earned points; false = revealed after a wrong guess */
+  earned: boolean;
 }
 
 interface BoardProps {
   sessionId: string;
   words: Word[];
-  initialSolvedGroups: SolvedGroup[];
+  initialDisplayGroups: DisplayGroup[];
   initialMistakes: number;
 }
 
@@ -30,25 +34,24 @@ const MAX_MISTAKES = 4;
 export default function Board({
   sessionId,
   words,
-  initialSolvedGroups,
+  initialDisplayGroups,
   initialMistakes,
 }: BoardProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [solvedGroups, setSolvedGroups] = useState<SolvedGroup[]>(initialSolvedGroups);
+  const [displayGroups, setDisplayGroups] = useState<DisplayGroup[]>(initialDisplayGroups);
   const [mistakes, setMistakes] = useState(initialMistakes);
   const [shakingIds, setShakingIds] = useState<string[]>([]);
-  const [isAnimating, setIsAnimating] = useState(false); // true during shake (600ms)
+  const [isAnimating, setIsAnimating] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [gameOver, setGameOver] = useState(false);
 
-  const lockedWordIds = new Set(solvedGroups.flatMap((g) => g.wordIds));
+  const lockedWordIds = new Set(displayGroups.flatMap((g) => g.wordIds));
   const remainingWords = words.filter((w) => !lockedWordIds.has(w.id));
   const mistakesLeft = MAX_MISTAKES - mistakes;
 
-  // Blocks all interaction: server round-trip OR shake animation in progress
   const blocked = isPending || isAnimating || gameOver;
 
   // -------------------------------------------------------------------------
@@ -70,6 +73,25 @@ export default function Board({
   }
 
   // -------------------------------------------------------------------------
+  // Helpers
+  // -------------------------------------------------------------------------
+
+  function toDisplayGroup(g: { categoryId: string; categoryTitle: string; colorTheme: string; wordIds: string[]; difficulty: number }, earned: boolean): DisplayGroup {
+    return { categoryId: g.categoryId, title: g.categoryTitle, colorTheme: g.colorTheme, wordIds: g.wordIds, difficulty: g.difficulty, earned };
+  }
+
+  function triggerShake(ids: string[], onDone?: () => void) {
+    setIsAnimating(true);
+    setShakingIds(ids);
+    setTimeout(() => {
+      setShakingIds([]);
+      setSelectedIds([]);
+      setIsAnimating(false);
+      onDone?.();
+    }, 600);
+  }
+
+  // -------------------------------------------------------------------------
   // Submission
   // -------------------------------------------------------------------------
 
@@ -81,45 +103,65 @@ export default function Board({
       const result = await submitGuess(sessionId, selectedIds);
 
       if (result.correct) {
-        const newGroup: SolvedGroup = {
-          categoryId: result.categoryId,
-          title: result.categoryTitle,
-          colorTheme: result.colorTheme,
-          wordIds: result.wordIds,
-        };
-        setSolvedGroups((prev) => [...prev, newGroup]);
+        const newGroup = toDisplayGroup(
+          { categoryId: result.categoryId, categoryTitle: result.categoryTitle, colorTheme: result.colorTheme, wordIds: result.wordIds, difficulty: result.difficulty },
+          true
+        );
+        setDisplayGroups((prev) => [...prev, newGroup]);
         setSelectedIds([]);
 
         if (result.gameOver && result.status === "WON") {
           setMessage(`You won! Score: ${result.score}`);
           setGameOver(true);
-          setTimeout(() => router.push("/leaderboard"), 2200);
-        } else {
-          setMessage(`✓ ${result.categoryTitle}`);
-          setTimeout(() => setMessage(null), 1800);
-        }
-      } else {
-        setMistakes(result.mistakes);
-
-        // Lock all interaction for the full shake duration
-        setIsAnimating(true);
-        setShakingIds([...selectedIds]);
-        setTimeout(() => {
-          setShakingIds([]);
-          setSelectedIds([]);
-          setIsAnimating(false);
-        }, 600);
-
-        if (result.gameOver && result.status === "LOST") {
-          setMessage("No more guesses — better luck next time!");
-          setGameOver(true);
           setTimeout(() => router.push("/leaderboard"), 2500);
         } else {
-          const left = mistakesLeft - 1;
-          setMessage(`Not quite — ${left} guess${left === 1 ? "" : "es"} left`);
-          setTimeout(() => setMessage(null), 1800);
+          const pts = DIFFICULTY_POINTS[result.difficulty] ?? 0;
+          setMessage(`✓ ${result.categoryTitle} (+${pts} pts)`);
+          setTimeout(() => setMessage(null), 2000);
         }
+        return;
       }
+
+      // Wrong guess — always shake first, then branch
+      setMistakes(result.mistakes);
+      const snapshotIds = [...selectedIds];
+
+      if (result.gameOver) {
+        if (result.status === "LOST") {
+          triggerShake(snapshotIds, () => {
+            if (result.revealedAll.length > 0) {
+              setDisplayGroups((prev) => [
+                ...prev,
+                ...result.revealedAll.map((g) => toDisplayGroup(g, false)),
+              ]);
+            }
+            setMessage("No more guesses — better luck next time!");
+            setGameOver(true);
+            setTimeout(() => router.push("/leaderboard"), 2500);
+          });
+        } else {
+          // Partial WON — all groups accounted for via reveals, score only for genuine solves
+          triggerShake(snapshotIds, () => {
+            if (result.revealed) {
+              setDisplayGroups((prev) => [...prev, toDisplayGroup(result.revealed!, false)]);
+            }
+            setMessage(`All groups revealed! Score: ${result.score}`);
+            setGameOver(true);
+            setTimeout(() => router.push("/leaderboard"), 2500);
+          });
+        }
+        return;
+      }
+
+      // Wrong guess, game continues
+      triggerShake(snapshotIds, () => {
+        if (result.revealed) {
+          setDisplayGroups((prev) => [...prev, toDisplayGroup(result.revealed!, false)]);
+        }
+        const left = MAX_MISTAKES - result.mistakes;
+        setMessage(`Not quite — ${left} guess${left === 1 ? "" : "es"} left`);
+        setTimeout(() => setMessage(null), 2200);
+      });
     });
   }
 
@@ -129,31 +171,46 @@ export default function Board({
 
   return (
     <div
-      className="play-main"
       style={{ width: "100%", maxWidth: 560, display: "flex", flexDirection: "column", gap: "0.75rem" }}
     >
-      {/* Solved groups — reveal animation on mount */}
-      {solvedGroups.map((group) => (
+      {/* Solved / revealed group tiles */}
+      {displayGroups.map((group) => (
         <div
           key={group.categoryId}
           className="group-reveal"
           style={{
             background: group.colorTheme,
+            opacity: group.earned ? 1 : 0.55,
             borderRadius: "var(--radius)",
-            padding: "1rem",
+            border: group.earned ? "none" : "2px dashed rgba(0,0,0,0.35)",
+            padding: "0.65rem 1rem",
             textAlign: "center",
             color: "#111",
             fontWeight: 700,
-            fontSize: "1rem",
+            fontSize: "0.95rem",
             letterSpacing: "0.05em",
             textTransform: "uppercase",
           }}
         >
-          {group.title}
+          <div>{group.earned ? `✓ ${group.title}` : `↳ ${group.title}`}</div>
+          <div
+            style={{
+              fontSize: "0.7rem",
+              fontWeight: 500,
+              marginTop: "0.15rem",
+              opacity: 0.75,
+              textTransform: "none",
+              letterSpacing: 0,
+            }}
+          >
+            {group.earned
+              ? `+${DIFFICULTY_POINTS[group.difficulty] ?? 0} pts`
+              : "not earned"}
+          </div>
         </div>
       ))}
 
-      {/* Active 4×4 word grid with staggered entrance */}
+      {/* Active 4×4 word grid */}
       {remainingWords.length > 0 && (
         <div
           style={{
@@ -195,7 +252,7 @@ export default function Board({
         </p>
       )}
 
-      {/* Mistake dots — key trick re-mounts filled dot to re-trigger pulse */}
+      {/* Mistake dots */}
       <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", justifyContent: "center" }}>
         <span style={{ fontSize: "0.85rem", color: "var(--color-text-muted)", marginRight: "0.4rem" }}>
           Mistakes:

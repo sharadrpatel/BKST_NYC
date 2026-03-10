@@ -11,6 +11,7 @@ import { gameSessions, words, categories } from "@/db/schema";
 import { getSessionId } from "@/lib/session";
 import { shuffle } from "@/lib/utils";
 import Board from "@/components/game/Board";
+import type { DisplayGroup } from "@/components/game/Board";
 
 export default async function PlayPage() {
   const sessionId = await getSessionId();
@@ -26,7 +27,7 @@ export default async function PlayPage() {
   if (session.status !== "IN_PROGRESS") redirect("/leaderboard");
 
   // Fetch all 16 words for this puzzle with their category IDs.
-  // category_id is used server-side only for solved-group reconstruction below;
+  // category_id is used server-side only for group reconstruction below;
   // it is NOT forwarded to the client.
   const allWords = await db
     .select({
@@ -38,39 +39,44 @@ export default async function PlayPage() {
     .innerJoin(categories, eq(words.category_id, categories.id))
     .where(eq(categories.puzzle_id, session.puzzle_id));
 
-  // Reconstruct already-solved groups so the board renders correctly on refresh
   const solvedCategoryIds = JSON.parse(session.solved_groups) as string[];
+  const revealedCategoryIds = JSON.parse(session.revealed_groups) as string[];
 
-  type SolvedGroup = {
-    categoryId: string;
-    title: string;
-    colorTheme: string;
-    wordIds: string[];
-  };
+  const lockedCategoryIds = [...solvedCategoryIds, ...revealedCategoryIds];
 
-  let initialSolvedGroups: SolvedGroup[] = [];
+  // Fetch metadata for all locked categories in one query
+  let initialDisplayGroups: DisplayGroup[] = [];
 
-  if (solvedCategoryIds.length > 0) {
-    const solvedCats = await db
+  if (lockedCategoryIds.length > 0) {
+    const lockedCats = await db
       .select()
       .from(categories)
-      .where(inArray(categories.id, solvedCategoryIds));
+      .where(inArray(categories.id, lockedCategoryIds));
 
-    initialSolvedGroups = solvedCats.map((cat) => ({
-      categoryId: cat.id,
-      title: cat.title,
-      colorTheme: cat.color_theme,
-      wordIds: allWords
-        .filter((w) => w.categoryId === cat.id)
-        .map((w) => w.id),
-    }));
+    // Map in the order they were first locked (solved first, then revealed)
+    const catById = new Map(lockedCats.map((c) => [c.id, c]));
+
+    initialDisplayGroups = lockedCategoryIds
+      .map((id) => {
+        const cat = catById.get(id);
+        if (!cat) return null;
+        return {
+          categoryId: cat.id,
+          title: cat.title,
+          colorTheme: cat.color_theme,
+          wordIds: allWords.filter((w) => w.categoryId === cat.id).map((w) => w.id),
+          difficulty: cat.difficulty,
+          earned: solvedCategoryIds.includes(id),
+        } satisfies DisplayGroup;
+      })
+      .filter(Boolean) as DisplayGroup[];
   }
 
-  // Strip category info before sending to client
-  const solvedWordIds = new Set(initialSolvedGroups.flatMap((g) => g.wordIds));
+  // Strip category info and locked words before sending to client
+  const lockedWordIds = new Set(initialDisplayGroups.flatMap((g) => g.wordIds));
   const wordData = shuffle(
     allWords
-      .filter((w) => !solvedWordIds.has(w.id))
+      .filter((w) => !lockedWordIds.has(w.id))
       .map(({ id, text }) => ({ id, text }))
   );
 
@@ -90,7 +96,7 @@ export default async function PlayPage() {
       <Board
         sessionId={sessionId}
         words={wordData}
-        initialSolvedGroups={initialSolvedGroups}
+        initialDisplayGroups={initialDisplayGroups}
         initialMistakes={session.mistakes}
       />
     </main>
