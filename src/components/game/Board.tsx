@@ -338,6 +338,7 @@ export default function Board({
         display: "flex",
         flexDirection: "column",
         gap: "0.625rem",
+        containerType: "inline-size",
       }}
     >
       <div style={{ display: "flex", justifyContent: "flex-end" }}>
@@ -504,7 +505,8 @@ export default function Board({
             border: group.earned
               ? "2px solid transparent"
               : "2px dashed rgba(0,0,0,0.2)",
-            padding: "0.75rem 1.25rem",
+            padding: "0 1.25rem",
+            height: "calc((100cqi - 1.5rem) / 4)",
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
