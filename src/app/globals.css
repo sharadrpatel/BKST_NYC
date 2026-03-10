@@ -117,6 +117,13 @@ button {
   100% { transform: scale(1); }
 }
 
+/* Correct guess — cards compress and fade into the group bar */
+@keyframes card-merge {
+  0%   { transform: scale(1);    opacity: 1; }
+  30%  { transform: scale(1.06); opacity: 1; }
+  100% { transform: scaleY(0.6) scaleX(1.08); opacity: 0; }
+}
+
 /* Generic fade-in for messages */
 @keyframes fade-in {
   from { opacity: 0; transform: translateY(-3px); }
@@ -130,6 +137,7 @@ button {
 .word-card {
   transition:
     background var(--transition),
+    color var(--transition),
     transform var(--transition),
     box-shadow var(--transition);
 }
@@ -151,6 +159,11 @@ button {
 
 .word-card.selected {
   animation: pop-in 0.18s ease-out forwards;
+}
+
+.word-card.merging {
+  animation: card-merge 0.4s cubic-bezier(0.33, 1, 0.68, 1) forwards;
+  pointer-events: none;
 }
 
 /* ============================================================

@@ -5,6 +5,7 @@ interface WordCardProps {
   text: string;
   selected: boolean;
   shaking: boolean;
+  merging?: string;
   onClick: (id: string) => void;
 }
 
@@ -13,12 +14,14 @@ export default function WordCard({
   text,
   selected,
   shaking,
+  merging,
   onClick,
 }: WordCardProps) {
   const classes = [
     "word-card",
-    selected ? "selected" : "",
-    shaking  ? "shake"    : "",
+    selected && !merging ? "selected" : "",
+    shaking ? "shake" : "",
+    merging ? "merging" : "",
   ]
     .filter(Boolean)
     .join(" ");
@@ -29,8 +32,8 @@ export default function WordCard({
       onClick={() => onClick(id)}
       aria-pressed={selected}
       style={{
-        background: selected ? "var(--color-card-selected)" : "var(--color-card)",
-        color: selected ? "var(--color-text-on-dark)" : "var(--color-text)",
+        background: merging || (selected ? "var(--color-card-selected)" : "var(--color-card)"),
+        color: merging ? "transparent" : selected ? "var(--color-text-on-dark)" : "var(--color-text)",
         border: "none",
         borderRadius: "var(--radius)",
         padding: "1rem 0.5rem",
@@ -40,7 +43,7 @@ export default function WordCard({
         letterSpacing: "0.06em",
         cursor: "pointer",
         userSelect: "none",
-        transform: selected ? "scale(1.04)" : "scale(1)",
+        transform: selected && !merging ? "scale(1.04)" : "scale(1)",
         aspectRatio: "1 / 1",
         width: "100%",
         display: "flex",
@@ -48,7 +51,7 @@ export default function WordCard({
         justifyContent: "center",
         textAlign: "center",
         lineHeight: 1.2,
-        boxShadow: selected ? "var(--shadow-sm)" : "none",
+        boxShadow: selected && !merging ? "var(--shadow-sm)" : "none",
       }}
     >
       {text}

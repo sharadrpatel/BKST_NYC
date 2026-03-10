@@ -1,6 +1,14 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import {
+  useState,
+  useTransition,
+  useRef,
+  useLayoutEffect,
+  useEffect,
+  useMemo,
+  useCallback,
+} from "react";
 import { useRouter } from "next/navigation";
 import WordCard from "./WordCard";
 import SystemButton from "@/components/ui/SystemButton";
@@ -29,9 +37,14 @@ interface BoardProps {
   initialMistakes: number;
 }
 
+interface SolvingState {
+  group: DisplayGroup;
+  wordIds: Set<string>;
+  phase: "gather" | "merge";
+}
+
 const MAX_MISTAKES = 4;
 
-// Difficulty label for group tile subtitle
 const DIFFICULTY_LABEL: Record<number, string> = {
   1: "Straightforward",
   2: "Moderate",
@@ -49,7 +62,8 @@ export default function Board({
   const [isPending, startTransition] = useTransition();
 
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [displayGroups, setDisplayGroups] = useState<DisplayGroup[]>(initialDisplayGroups);
+  const [displayGroups, setDisplayGroups] =
+    useState<DisplayGroup[]>(initialDisplayGroups);
   const [mistakes, setMistakes] = useState(initialMistakes);
   const [shakingIds, setShakingIds] = useState<string[]>([]);
   const [isAnimating, setIsAnimating] = useState(false);
@@ -57,15 +71,140 @@ export default function Board({
   const [gameOver, setGameOver] = useState(false);
   const [showHowToPlay, setShowHowToPlay] = useState(true);
 
+  // Solve animation
+  const [solvingState, setSolvingState] = useState<SolvingState | null>(null);
+  const gridRef = useRef<HTMLDivElement>(null);
+  const prevRectsRef = useRef<Map<string, DOMRect>>(new Map());
+  const flipDoneRef = useRef(false);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const pendingResultRef = useRef<any>(null);
+  const entranceDone = useRef(initialDisplayGroups.length > 0);
+
   const lockedWordIds = new Set(displayGroups.flatMap((g) => g.wordIds));
   const remainingWords = words.filter((w) => !lockedWordIds.has(w.id));
-  const mistakesLeft = MAX_MISTAKES - mistakes;
 
+  const orderedWords = useMemo(() => {
+    if (!solvingState) return remainingWords;
+    const solving: Word[] = [];
+    const rest: Word[] = [];
+    for (const w of remainingWords) {
+      (solvingState.wordIds.has(w.id) ? solving : rest).push(w);
+    }
+    return [...solving, ...rest];
+  }, [remainingWords, solvingState]);
+
+  const mistakesLeft = MAX_MISTAKES - mistakes;
   const blocked = isPending || isAnimating || gameOver;
 
-  // -------------------------------------------------------------------------
-  // Selection
-  // -------------------------------------------------------------------------
+  const snapshotPositions = useCallback(() => {
+    const map = new Map<string, DOMRect>();
+    if (!gridRef.current) return map;
+    gridRef.current
+      .querySelectorAll<HTMLElement>("[data-word-id]")
+      .forEach((el) => {
+        map.set(el.dataset.wordId!, el.getBoundingClientRect());
+      });
+    return map;
+  }, []);
+
+  // ── FLIP animation for gather phase ─────────────────────
+  useLayoutEffect(() => {
+    if (
+      !solvingState ||
+      solvingState.phase !== "gather" ||
+      prevRectsRef.current.size === 0 ||
+      flipDoneRef.current
+    )
+      return;
+
+    const grid = gridRef.current;
+    if (!grid) return;
+
+    flipDoneRef.current = true;
+    const cards = grid.querySelectorAll<HTMLElement>("[data-word-id]");
+    const animations: Animation[] = [];
+
+    cards.forEach((card) => {
+      const id = card.dataset.wordId!;
+      const prevRect = prevRectsRef.current.get(id);
+      if (!prevRect) return;
+
+      const newRect = card.getBoundingClientRect();
+      const dx = prevRect.left - newRect.left;
+      const dy = prevRect.top - newRect.top;
+
+      if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
+
+      const isSolving = solvingState.wordIds.has(id);
+      const keyframes = isSolving
+        ? [
+            {
+              transform: `translate(${dx}px, ${dy}px) scale(1.06)`,
+              zIndex: "10",
+            },
+            { transform: "translate(0, 0) scale(1)", zIndex: "10" },
+          ]
+        : [
+            { transform: `translate(${dx}px, ${dy}px)`, zIndex: "1" },
+            { transform: "translate(0, 0)", zIndex: "1" },
+          ];
+
+      const anim = card.animate(keyframes, {
+        duration: 450,
+        easing: "cubic-bezier(0.33, 1, 0.68, 1)",
+        fill: "both",
+      });
+      animations.push(anim);
+    });
+
+    if (animations.length === 0) {
+      setSolvingState((prev) =>
+        prev ? { ...prev, phase: "merge" } : null,
+      );
+      return;
+    }
+
+    Promise.all(animations.map((a) => a.finished)).then(() => {
+      animations.forEach((a) => a.cancel());
+      setSolvingState((prev) =>
+        prev ? { ...prev, phase: "merge" } : null,
+      );
+    });
+
+    prevRectsRef.current = new Map();
+  }, [solvingState]);
+
+  // ── Merge phase completion ──────────────────────────────
+  useEffect(() => {
+    if (!solvingState || solvingState.phase !== "merge") return;
+
+    const timer = setTimeout(() => {
+      const group = solvingState.group;
+      setDisplayGroups((prev) => [...prev, group]);
+      setSelectedIds([]);
+      setSolvingState(null);
+      setIsAnimating(false);
+      flipDoneRef.current = false;
+
+      const result = pendingResultRef.current;
+      pendingResultRef.current = null;
+      if (result) {
+        if (result.gameOver && result.status === "WON") {
+          setMessage(`You won! Score: ${result.score}`);
+          setGameOver(true);
+          setTimeout(() => router.push("/leaderboard"), 2500);
+        } else {
+          const pts = DIFFICULTY_POINTS[result.difficulty] ?? 0;
+          setMessage(`\u2713 ${result.categoryTitle} (+${pts} pts)`);
+          setTimeout(() => setMessage(null), 2000);
+        }
+      }
+    }, 450);
+
+    return () => clearTimeout(timer);
+  }, [solvingState, router]);
+
+  // ── Selection ───────────────────────────────────────────
 
   function handleSelect(id: string) {
     if (blocked) return;
@@ -81,12 +220,26 @@ export default function Board({
     setSelectedIds([]);
   }
 
-  // -------------------------------------------------------------------------
-  // Helpers
-  // -------------------------------------------------------------------------
+  // ── Helpers ─────────────────────────────────────────────
 
-  function toDisplayGroup(g: { categoryId: string; categoryTitle: string; colorTheme: string; wordIds: string[]; difficulty: number }, earned: boolean): DisplayGroup {
-    return { categoryId: g.categoryId, title: g.categoryTitle, colorTheme: g.colorTheme, wordIds: g.wordIds, difficulty: g.difficulty, earned };
+  function toDisplayGroup(
+    g: {
+      categoryId: string;
+      categoryTitle: string;
+      colorTheme: string;
+      wordIds: string[];
+      difficulty: number;
+    },
+    earned: boolean,
+  ): DisplayGroup {
+    return {
+      categoryId: g.categoryId,
+      title: g.categoryTitle,
+      colorTheme: g.colorTheme,
+      wordIds: g.wordIds,
+      difficulty: g.difficulty,
+      earned,
+    };
   }
 
   function triggerShake(ids: string[], onDone?: () => void) {
@@ -100,9 +253,7 @@ export default function Board({
     }, 600);
   }
 
-  // -------------------------------------------------------------------------
-  // Submission
-  // -------------------------------------------------------------------------
+  // ── Submission ──────────────────────────────────────────
 
   function handleSubmit() {
     if (selectedIds.length !== 4 || blocked) return;
@@ -113,30 +264,36 @@ export default function Board({
 
       if (result.correct) {
         const newGroup = toDisplayGroup(
-          { categoryId: result.categoryId, categoryTitle: result.categoryTitle, colorTheme: result.colorTheme, wordIds: result.wordIds, difficulty: result.difficulty },
-          true
+          {
+            categoryId: result.categoryId,
+            categoryTitle: result.categoryTitle,
+            colorTheme: result.colorTheme,
+            wordIds: result.wordIds,
+            difficulty: result.difficulty,
+          },
+          true,
         );
-        setDisplayGroups((prev) => [...prev, newGroup]);
-        setSelectedIds([]);
 
-        if (result.gameOver && result.status === "WON") {
-          setMessage(`You won! Score: ${result.score}`);
-          setGameOver(true);
-          setTimeout(() => router.push("/leaderboard"), 2500);
-        } else {
-          const pts = DIFFICULTY_POINTS[result.difficulty] ?? 0;
-          setMessage(`✓ ${result.categoryTitle} (+${pts} pts)`);
-          setTimeout(() => setMessage(null), 2000);
-        }
+        prevRectsRef.current = snapshotPositions();
+        flipDoneRef.current = false;
+        pendingResultRef.current = result;
+        entranceDone.current = true;
+
+        setIsAnimating(true);
+        setSelectedIds([]);
+        setSolvingState({
+          group: newGroup,
+          wordIds: new Set(result.wordIds),
+          phase: "gather",
+        });
         return;
       }
 
-      // Wrong guess — always shake first, then branch
+      // Wrong guess
       setMistakes(result.mistakes);
       const snapshotIds = [...selectedIds];
 
       if (result.gameOver) {
-        // LOST — reveal all remaining groups at once
         triggerShake(snapshotIds, () => {
           if (result.revealedAll.length > 0) {
             setDisplayGroups((prev) => [
@@ -144,9 +301,10 @@ export default function Board({
               ...result.revealedAll.map((g) => toDisplayGroup(g, false)),
             ]);
           }
-          const msg = result.score > 0
-            ? `Game over — Score: ${result.score}`
-            : "No more guesses — better luck next time!";
+          const msg =
+            result.score > 0
+              ? `Game over \u2014 Score: ${result.score}`
+              : "No more guesses \u2014 better luck next time!";
           setMessage(msg);
           setGameOver(true);
           setTimeout(() => router.push("/leaderboard"), 2500);
@@ -154,22 +312,23 @@ export default function Board({
         return;
       }
 
-      // Wrong guess, game continues — no reveal
       triggerShake(snapshotIds, () => {
         const left = MAX_MISTAKES - result.mistakes;
         if (result.oneAway) {
-          setMessage(`One away — ${left} guess${left === 1 ? "" : "es"} left`);
+          setMessage(
+            `One away \u2014 ${left} guess${left === 1 ? "" : "es"} left`,
+          );
         } else {
-          setMessage(`Not quite — ${left} guess${left === 1 ? "" : "es"} left`);
+          setMessage(
+            `Not quite \u2014 ${left} guess${left === 1 ? "" : "es"} left`,
+          );
         }
         setTimeout(() => setMessage(null), 2200);
       });
     });
   }
 
-  // -------------------------------------------------------------------------
-  // Render
-  // -------------------------------------------------------------------------
+  // ── Render ──────────────────────────────────────────────
 
   return (
     <div
@@ -215,8 +374,22 @@ export default function Board({
             gap: "0.5rem",
           }}
         >
-          <div style={{ display: "flex", alignItems: "start", justifyContent: "space-between", gap: "0.5rem" }}>
-            <h2 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 800, color: "var(--color-text)" }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "start",
+              justifyContent: "space-between",
+              gap: "0.5rem",
+            }}
+          >
+            <h2
+              style={{
+                margin: 0,
+                fontSize: "1.1rem",
+                fontWeight: 800,
+                color: "var(--color-text)",
+              }}
+            >
               How to Play
             </h2>
             <button
@@ -237,21 +410,53 @@ export default function Board({
             </button>
           </div>
 
-          <p style={{ margin: 0, color: "var(--color-text)", fontSize: "0.92rem", lineHeight: 1.45 }}>
+          <p
+            style={{
+              margin: 0,
+              color: "var(--color-text)",
+              fontSize: "0.92rem",
+              lineHeight: 1.45,
+            }}
+          >
             Create four groups of four words that share something in common.
           </p>
 
-          <ul style={{ margin: "0.1rem 0 0.2rem 1.1rem", padding: 0, color: "var(--color-text)", lineHeight: 1.45 }}>
-            <li>Select 4 words and press <strong>Submit</strong>.</li>
+          <ul
+            style={{
+              margin: "0.1rem 0 0.2rem 1.1rem",
+              padding: 0,
+              color: "var(--color-text)",
+              lineHeight: 1.45,
+            }}
+          >
+            <li>
+              Select 4 words and press <strong>Submit</strong>.
+            </li>
             <li>If you miss 4 times, the game ends.</li>
-            <li>If you get 3 out of 4, you will see <strong>One away</strong>.</li>
+            <li>
+              If you get 3 out of 4, you will see <strong>One away</strong>.
+            </li>
           </ul>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem" }}>
-            <span style={{ fontWeight: 700, fontSize: "0.83rem", color: "var(--color-text)" }}>
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: "0.35rem",
+            }}
+          >
+            <span
+              style={{
+                fontWeight: 700,
+                fontSize: "0.83rem",
+                color: "var(--color-text)",
+              }}
+            >
               Difficulty colors
             </span>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: "0.45rem" }}>
+            <div
+              style={{ display: "flex", flexWrap: "wrap", gap: "0.45rem" }}
+            >
               {[
                 { label: "Straightforward", color: "#f2d763" },
                 { label: "Moderate", color: "#8bbf50" },
@@ -297,8 +502,8 @@ export default function Board({
             background: group.earned ? group.colorTheme : "transparent",
             borderRadius: "var(--radius)",
             border: group.earned
-              ? `2px solid transparent`
-              : `2px dashed rgba(0,0,0,0.2)`,
+              ? "2px solid transparent"
+              : "2px dashed rgba(0,0,0,0.2)",
             padding: "0.75rem 1.25rem",
             display: "flex",
             alignItems: "center",
@@ -323,10 +528,13 @@ export default function Board({
                 fontSize: "0.72rem",
                 fontWeight: 500,
                 marginTop: "0.1rem",
-                color: group.earned ? "rgba(0,0,0,0.55)" : "var(--color-text-muted)",
+                color: group.earned
+                  ? "rgba(0,0,0,0.55)"
+                  : "var(--color-text-muted)",
               }}
             >
-              {DIFFICULTY_LABEL[group.difficulty] ?? `Difficulty ${group.difficulty}`}
+              {DIFFICULTY_LABEL[group.difficulty] ??
+                `Difficulty ${group.difficulty}`}
             </div>
           </div>
           <div style={{ textAlign: "right", flexShrink: 0 }}>
@@ -359,30 +567,50 @@ export default function Board({
         </div>
       ))}
 
-      {/* Active 4×4 word grid */}
-      {remainingWords.length > 0 && (
+      {/* Active 4x4 word grid */}
+      {orderedWords.length > 0 && (
         <div
+          ref={gridRef}
           style={{
             display: "grid",
             gridTemplateColumns: "repeat(4, 1fr)",
             gap: "0.5rem",
           }}
         >
-          {remainingWords.map((word, i) => (
-            <div
-              key={word.id}
-              className="card-entrance"
-              style={{ animationDelay: `${i * 35}ms` }}
-            >
-              <WordCard
-                id={word.id}
-                text={word.text}
-                selected={selectedIds.includes(word.id)}
-                shaking={shakingIds.includes(word.id)}
-                onClick={handleSelect}
-              />
-            </div>
-          ))}
+          {orderedWords.map((word, i) => {
+            const isSolving = solvingState?.wordIds.has(word.id) ?? false;
+            const isMerging =
+              isSolving && solvingState?.phase === "merge";
+
+            return (
+              <div
+                key={word.id}
+                data-word-id={word.id}
+                className={
+                  !entranceDone.current ? "card-entrance" : undefined
+                }
+                style={{
+                  animationDelay: !entranceDone.current
+                    ? `${i * 35}ms`
+                    : undefined,
+                  position: "relative",
+                }}
+              >
+                <WordCard
+                  id={word.id}
+                  text={word.text}
+                  selected={selectedIds.includes(word.id) || isSolving}
+                  shaking={shakingIds.includes(word.id)}
+                  merging={
+                    isMerging
+                      ? solvingState!.group.colorTheme
+                      : undefined
+                  }
+                  onClick={handleSelect}
+                />
+              </div>
+            );
+          })}
         </div>
       )}
 
@@ -460,7 +688,9 @@ export default function Board({
             onClick={handleSubmit}
             disabled={selectedIds.length !== 4 || blocked}
           >
-            {isPending ? "Checking…" : `Submit${selectedIds.length === 4 ? "" : ` (${selectedIds.length}/4)`}`}
+            {isPending
+              ? "Checking\u2026"
+              : `Submit${selectedIds.length === 4 ? "" : ` (${selectedIds.length}/4)`}`}
           </SystemButton>
         </div>
       )}
