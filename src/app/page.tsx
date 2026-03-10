@@ -11,13 +11,16 @@ export default async function LoginPage({ searchParams }: Props) {
   return (
     <main
       style={{
+        position: "fixed",
+        inset: 0,
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        minHeight: "100vh",
+        overflow: "hidden",
         padding: "1.5rem",
         background: "var(--color-bg)",
+        zIndex: 1,
       }}
     >
       {/* Brand masthead */}
@@ -41,9 +44,10 @@ export default async function LoginPage({ searchParams }: Props) {
         </p>
         <h1
           style={{
-            fontSize: "clamp(2.2rem, 6vw, 3rem)",
-            fontWeight: 800,
-            letterSpacing: "-0.04em",
+            fontFamily: "var(--font-chomsky)",
+            fontSize: "clamp(2.6rem, 7vw, 3.6rem)",
+            fontWeight: 400,
+            letterSpacing: "0.01em",
             color: "var(--color-text)",
             lineHeight: 1.1,
           }}
