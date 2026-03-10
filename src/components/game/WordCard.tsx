@@ -30,7 +30,7 @@ export default function WordCard({
       aria-pressed={selected}
       style={{
         background: selected ? "var(--color-card-selected)" : "var(--color-card)",
-        color: "var(--color-text)",
+        color: selected ? "var(--color-text-on-dark)" : "var(--color-text)",
         border: "none",
         borderRadius: "var(--radius)",
         padding: "1rem 0.5rem",
@@ -48,6 +48,7 @@ export default function WordCard({
         justifyContent: "center",
         textAlign: "center",
         lineHeight: 1.2,
+        boxShadow: selected ? "var(--shadow-sm)" : "none",
       }}
     >
       {text}

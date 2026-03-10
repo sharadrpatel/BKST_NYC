@@ -87,18 +87,53 @@ export default async function PlayPage() {
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-        padding: "2rem 1rem",
         minHeight: "100vh",
-        gap: "1.5rem",
+        background: "var(--color-bg)",
       }}
     >
-      <h1 style={{ fontSize: "1.5rem", fontWeight: 700 }}>The Akshar Times</h1>
-      <Board
-        sessionId={sessionId}
-        words={wordData}
-        initialDisplayGroups={initialDisplayGroups}
-        initialMistakes={session.mistakes}
-      />
+      {/* Top nav bar */}
+      <header
+        style={{
+          width: "100%",
+          borderBottom: "1px solid var(--color-border)",
+          background: "var(--color-surface)",
+          padding: "0.875rem 1.5rem",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          boxShadow: "var(--shadow-xs)",
+        }}
+      >
+        <h1
+          style={{
+            fontSize: "1.15rem",
+            fontWeight: 800,
+            letterSpacing: "-0.03em",
+            color: "var(--color-text)",
+          }}
+        >
+          The Akshar Times
+        </h1>
+      </header>
+
+      {/* Board wrapper */}
+      <div
+        style={{
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          padding: "2rem 1rem 3rem",
+          width: "100%",
+        }}
+      >
+        <Board
+          sessionId={sessionId}
+          words={wordData}
+          initialDisplayGroups={initialDisplayGroups}
+          initialMistakes={session.mistakes}
+        />
+      </div>
     </main>
   );
 }

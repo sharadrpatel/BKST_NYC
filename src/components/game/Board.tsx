@@ -31,6 +31,14 @@ interface BoardProps {
 
 const MAX_MISTAKES = 4;
 
+// Difficulty label for group tile subtitle
+const DIFFICULTY_LABEL: Record<number, string> = {
+  1: "Straightforward",
+  2: "Moderate",
+  3: "Tricky",
+  4: "Devious",
+};
+
 export default function Board({
   sessionId,
   words,
@@ -136,7 +144,7 @@ export default function Board({
             ]);
           }
           const msg = result.score > 0
-            ? `Game over! Score: ${result.score}`
+            ? `Game over — Score: ${result.score}`
             : "No more guesses — better luck next time!";
           setMessage(msg);
           setGameOver(true);
@@ -160,7 +168,13 @@ export default function Board({
 
   return (
     <div
-      style={{ width: "100%", maxWidth: 560, display: "flex", flexDirection: "column", gap: "0.75rem" }}
+      style={{
+        width: "100%",
+        maxWidth: 560,
+        display: "flex",
+        flexDirection: "column",
+        gap: "0.625rem",
+      }}
     >
       {/* Solved / revealed group tiles */}
       {displayGroups.map((group) => (
@@ -168,33 +182,67 @@ export default function Board({
           key={group.categoryId}
           className="group-reveal"
           style={{
-            background: group.colorTheme,
-            opacity: group.earned ? 1 : 0.55,
+            background: group.earned ? group.colorTheme : "transparent",
             borderRadius: "var(--radius)",
-            border: group.earned ? "none" : "2px dashed rgba(0,0,0,0.35)",
-            padding: "0.65rem 1rem",
-            textAlign: "center",
+            border: group.earned
+              ? `2px solid transparent`
+              : `2px dashed rgba(0,0,0,0.2)`,
+            padding: "0.75rem 1.25rem",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
             color: "#111",
-            fontWeight: 700,
-            fontSize: "0.95rem",
-            letterSpacing: "0.05em",
-            textTransform: "uppercase",
           }}
         >
-          <div>{group.earned ? `✓ ${group.title}` : `↳ ${group.title}`}</div>
-          <div
-            style={{
-              fontSize: "0.7rem",
-              fontWeight: 500,
-              marginTop: "0.15rem",
-              opacity: 0.75,
-              textTransform: "none",
-              letterSpacing: 0,
-            }}
-          >
-            {group.earned
-              ? `+${DIFFICULTY_POINTS[group.difficulty] ?? 0} pts`
-              : "not earned"}
+          <div>
+            <div
+              style={{
+                fontWeight: 700,
+                fontSize: "0.9rem",
+                letterSpacing: "0.04em",
+                textTransform: "uppercase",
+                color: group.earned ? "#111" : "var(--color-text-muted)",
+              }}
+            >
+              {group.title}
+            </div>
+            <div
+              style={{
+                fontSize: "0.72rem",
+                fontWeight: 500,
+                marginTop: "0.1rem",
+                color: group.earned ? "rgba(0,0,0,0.55)" : "var(--color-text-muted)",
+              }}
+            >
+              {DIFFICULTY_LABEL[group.difficulty] ?? `Difficulty ${group.difficulty}`}
+            </div>
+          </div>
+          <div style={{ textAlign: "right", flexShrink: 0 }}>
+            {group.earned ? (
+              <span
+                style={{
+                  fontSize: "0.78rem",
+                  fontWeight: 700,
+                  background: "rgba(0,0,0,0.12)",
+                  padding: "0.2rem 0.55rem",
+                  borderRadius: "var(--radius-sm)",
+                  color: "#111",
+                }}
+              >
+                +{DIFFICULTY_POINTS[group.difficulty] ?? 0} pts
+              </span>
+            ) : (
+              <span
+                style={{
+                  fontSize: "0.72rem",
+                  fontWeight: 600,
+                  color: "var(--color-text-muted)",
+                  letterSpacing: "0.03em",
+                }}
+              >
+                not earned
+              </span>
+            )}
           </div>
         </div>
       ))}
@@ -233,33 +281,61 @@ export default function Board({
           style={{
             textAlign: "center",
             fontWeight: 600,
+            fontSize: "0.925rem",
             color: "var(--color-text)",
             minHeight: "1.5rem",
+            animation: "fade-in 0.25s ease both",
           }}
         >
           {message}
         </p>
       )}
 
-      {/* Mistake dots */}
-      <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", justifyContent: "center" }}>
-        <span style={{ fontSize: "0.85rem", color: "var(--color-text-muted)", marginRight: "0.4rem" }}>
-          Mistakes:
+      {/* Mistake tracker */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "0.5rem",
+          justifyContent: "center",
+          padding: "0.25rem 0",
+        }}
+      >
+        <span
+          style={{
+            fontSize: "0.8rem",
+            fontWeight: 500,
+            color: "var(--color-text-muted)",
+            letterSpacing: "0.02em",
+          }}
+        >
+          {mistakesLeft > 0
+            ? `${mistakesLeft} guess${mistakesLeft === 1 ? "" : "es"} remaining`
+            : "No guesses left"}
         </span>
-        {Array.from({ length: MAX_MISTAKES }).map((_, i) => {
-          const filled = i < mistakes;
-          return (
-            <span
-              key={`dot-${i}-${filled ? "filled" : "empty"}`}
-              className={`mistake-dot${filled ? " mistake-dot--filled" : ""}`}
-            />
-          );
-        })}
+        <div style={{ display: "flex", gap: "0.3rem" }}>
+          {Array.from({ length: MAX_MISTAKES }).map((_, i) => {
+            const filled = i < mistakes;
+            return (
+              <span
+                key={`dot-${i}-${filled ? "filled" : "empty"}`}
+                className={`mistake-dot${filled ? " mistake-dot--filled" : ""}`}
+              />
+            );
+          })}
+        </div>
       </div>
 
       {/* Controls */}
       {!gameOver && (
-        <div style={{ display: "flex", gap: "0.75rem", justifyContent: "center" }}>
+        <div
+          style={{
+            display: "flex",
+            gap: "0.6rem",
+            justifyContent: "center",
+            paddingTop: "0.25rem",
+          }}
+        >
           <SystemButton
             variant="ghost"
             onClick={handleDeselectAll}
@@ -272,7 +348,7 @@ export default function Board({
             onClick={handleSubmit}
             disabled={selectedIds.length !== 4 || blocked}
           >
-            {isPending ? "Checking…" : "Submit"}
+            {isPending ? "Checking…" : `Submit${selectedIds.length === 4 ? "" : ` (${selectedIds.length}/4)`}`}
           </SystemButton>
         </div>
       )}
