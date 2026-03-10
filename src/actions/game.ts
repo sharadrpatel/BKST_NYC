@@ -6,7 +6,7 @@ import { eq, inArray } from "drizzle-orm";
 import { computeScore, DIFFICULTY_POINTS } from "@/lib/math";
 
 // ---------------------------------------------------------------------------
-// Shared type for a group revealed after a wrong guess
+// Shared type for a group revealed after the game ends
 // ---------------------------------------------------------------------------
 
 export type RevealedGroup = {
@@ -32,7 +32,7 @@ export type GuessResult =
       wordIds: string[];
       difficulty: number;
     }
-  // Correct guess, all groups accounted for → WON
+  // Correct guess, all groups solved → WON
   | {
       correct: true;
       gameOver: true;
@@ -44,27 +44,18 @@ export type GuessResult =
       wordIds: string[];
       difficulty: number;
     }
-  // Wrong guess, game continues — one category revealed
+  // Wrong guess, game continues — no reveal
   | {
       correct: false;
       gameOver: false;
       mistakes: number;
-      revealed: RevealedGroup | null;
-    }
-  // Wrong guess caused all groups to be accounted for → partial WON
-  | {
-      correct: false;
-      gameOver: true;
-      status: "WON";
-      score: number;
-      mistakes: number;
-      revealed: RevealedGroup | null;
     }
   // Wrong guess, 4 mistakes → LOST; remaining groups exposed in revealedAll
   | {
       correct: false;
       gameOver: true;
       status: "LOST";
+      score: number;
       mistakes: number;
       revealedAll: RevealedGroup[];
     };
@@ -227,91 +218,34 @@ export async function submitGuess(
       }));
     }
 
-    await db
-      .update(gameSessions)
-      .set({ mistakes: newMistakes, status: "LOST", end_time: endTime, score: 0 })
-      .where(eq(gameSessions.id, sessionId));
-
-    return { correct: false, gameOver: true, status: "LOST", mistakes: newMistakes, revealedAll };
-  }
-
-  // Wrong guess, game continues — find the best-matching category to reveal.
-  // "Best match" = the category with the most submitted words (highest overlap).
-  const overlapCount = new Map<string, number>();
-  for (const w of wordRows) {
-    overlapCount.set(w.categoryId, (overlapCount.get(w.categoryId) ?? 0) + 1);
-  }
-  const sortedByOverlap = [...overlapCount.entries()].sort((a, b) => b[1] - a[1]);
-
-  const alreadyDone = new Set([...currentSolved, ...currentRevealed]);
-  let revealedGroup: RevealedGroup | null = null;
-  let newRevealedIds = currentRevealed;
-
-  for (const [catId] of sortedByOverlap) {
-    if (!alreadyDone.has(catId)) {
-      const [cat] = await db
-        .select()
+    // Score from correctly solved groups only (revealed groups earn 0)
+    let score = 0;
+    if (currentSolved.length > 0) {
+      const solvedCats = await db
+        .select({ difficulty: categories.difficulty })
         .from(categories)
-        .where(eq(categories.id, catId))
-        .limit(1);
-
-      const catWords = await db
-        .select({ id: words.id })
-        .from(words)
-        .where(eq(words.category_id, catId));
-
-      revealedGroup = {
-        categoryId: cat.id,
-        categoryTitle: cat.title,
-        colorTheme: cat.color_theme,
-        wordIds: catWords.map((w) => w.id),
-        difficulty: cat.difficulty,
-      };
-
-      newRevealedIds = [...currentRevealed, catId];
-      break;
-    }
-  }
-
-  // Edge case: this reveal fills the last slot (solved + revealed = 4)
-  const allDone = currentSolved.length + newRevealedIds.length === 4;
-  if (allDone) {
-    const endTime = new Date();
-
-    if (currentSolved.length === 0) {
-      // Nothing solved — LOST
-      await db
-        .update(gameSessions)
-        .set({ mistakes: newMistakes, revealed_groups: JSON.stringify(newRevealedIds), status: "LOST", end_time: endTime, score: 0 })
-        .where(eq(gameSessions.id, sessionId));
-      return { correct: false, gameOver: true, status: "LOST", mistakes: newMistakes, revealedAll: [] };
+        .where(inArray(categories.id, currentSolved));
+      const difficultyPoints = solvedCats.reduce(
+        (sum, c) => sum + (DIFFICULTY_POINTS[c.difficulty] ?? 0),
+        0
+      );
+      score = computeScore("WON", session.start_time, endTime, newMistakes, difficultyPoints);
     }
 
-    // At least one group solved — partial WON
-    const solvedCats = await db
-      .select({ difficulty: categories.difficulty })
-      .from(categories)
-      .where(inArray(categories.id, currentSolved));
-
-    const difficultyPoints = solvedCats.reduce(
-      (sum, c) => sum + (DIFFICULTY_POINTS[c.difficulty] ?? 0),
-      0
-    );
-    const score = computeScore("WON", session.start_time, endTime, newMistakes, difficultyPoints);
-
+    const newRevealedIds = [...currentRevealed, ...revealedAll.map((g) => g.categoryId)];
     await db
       .update(gameSessions)
-      .set({ mistakes: newMistakes, revealed_groups: JSON.stringify(newRevealedIds), status: "WON", end_time: endTime, score })
+      .set({ mistakes: newMistakes, revealed_groups: JSON.stringify(newRevealedIds), status: "LOST", end_time: endTime, score })
       .where(eq(gameSessions.id, sessionId));
 
-    return { correct: false, gameOver: true, status: "WON", score, mistakes: newMistakes, revealed: revealedGroup };
+    return { correct: false, gameOver: true, status: "LOST", score, mistakes: newMistakes, revealedAll };
   }
 
-  // Normal wrong guess — persist and return
+  // Wrong guess, game continues — just record the mistake, no reveal
   await db
     .update(gameSessions)
-    .set({ mistakes: newMistakes, revealed_groups: JSON.stringify(newRevealedIds) })
+    .set({ mistakes: newMistakes })
     .where(eq(gameSessions.id, sessionId));
 
-  return { correct: false, gameOver: false, mistakes: newMistakes, revealed: revealedGroup };
+  return { correct: false, gameOver: false, mistakes: newMistakes };
 }

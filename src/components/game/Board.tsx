@@ -127,37 +127,26 @@ export default function Board({
       const snapshotIds = [...selectedIds];
 
       if (result.gameOver) {
-        if (result.status === "LOST") {
-          triggerShake(snapshotIds, () => {
-            if (result.revealedAll.length > 0) {
-              setDisplayGroups((prev) => [
-                ...prev,
-                ...result.revealedAll.map((g) => toDisplayGroup(g, false)),
-              ]);
-            }
-            setMessage("No more guesses — better luck next time!");
-            setGameOver(true);
-            setTimeout(() => router.push("/leaderboard"), 2500);
-          });
-        } else {
-          // Partial WON — all groups accounted for via reveals, score only for genuine solves
-          triggerShake(snapshotIds, () => {
-            if (result.revealed) {
-              setDisplayGroups((prev) => [...prev, toDisplayGroup(result.revealed!, false)]);
-            }
-            setMessage(`All groups revealed! Score: ${result.score}`);
-            setGameOver(true);
-            setTimeout(() => router.push("/leaderboard"), 2500);
-          });
-        }
+        // LOST — reveal all remaining groups at once
+        triggerShake(snapshotIds, () => {
+          if (result.revealedAll.length > 0) {
+            setDisplayGroups((prev) => [
+              ...prev,
+              ...result.revealedAll.map((g) => toDisplayGroup(g, false)),
+            ]);
+          }
+          const msg = result.score > 0
+            ? `Game over! Score: ${result.score}`
+            : "No more guesses — better luck next time!";
+          setMessage(msg);
+          setGameOver(true);
+          setTimeout(() => router.push("/leaderboard"), 2500);
+        });
         return;
       }
 
-      // Wrong guess, game continues
+      // Wrong guess, game continues — no reveal
       triggerShake(snapshotIds, () => {
-        if (result.revealed) {
-          setDisplayGroups((prev) => [...prev, toDisplayGroup(result.revealed!, false)]);
-        }
         const left = MAX_MISTAKES - result.mistakes;
         setMessage(`Not quite — ${left} guess${left === 1 ? "" : "es"} left`);
         setTimeout(() => setMessage(null), 2200);
