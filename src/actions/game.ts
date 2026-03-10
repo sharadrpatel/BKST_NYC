@@ -49,6 +49,7 @@ export type GuessResult =
       correct: false;
       gameOver: false;
       mistakes: number;
+      oneAway: boolean;
     }
   // Wrong guess, 4 mistakes → LOST; remaining groups exposed in revealedAll
   | {
@@ -98,6 +99,11 @@ export async function submitGuess(
   // 3. Check if all 4 belong to the same category
   const uniqueCategories = Array.from(new Set(wordRows.map((w) => w.categoryId)));
   const isCorrect = uniqueCategories.length === 1;
+  const categoryCounts = wordRows.reduce((acc, row) => {
+    acc.set(row.categoryId, (acc.get(row.categoryId) ?? 0) + 1);
+    return acc;
+  }, new Map<string, number>());
+  const oneAway = !isCorrect && Array.from(categoryCounts.values()).some((count) => count === 3);
 
   // 4. Persist the guess BEFORE responding (prevents refresh-loop abuse)
   await db.insert(guesses).values({
@@ -247,5 +253,5 @@ export async function submitGuess(
     .set({ mistakes: newMistakes })
     .where(eq(gameSessions.id, sessionId));
 
-  return { correct: false, gameOver: false, mistakes: newMistakes };
+  return { correct: false, gameOver: false, mistakes: newMistakes, oneAway };
 }

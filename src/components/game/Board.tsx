@@ -55,6 +55,7 @@ export default function Board({
   const [isAnimating, setIsAnimating] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [gameOver, setGameOver] = useState(false);
+  const [showHowToPlay, setShowHowToPlay] = useState(true);
 
   const lockedWordIds = new Set(displayGroups.flatMap((g) => g.wordIds));
   const remainingWords = words.filter((w) => !lockedWordIds.has(w.id));
@@ -156,7 +157,11 @@ export default function Board({
       // Wrong guess, game continues — no reveal
       triggerShake(snapshotIds, () => {
         const left = MAX_MISTAKES - result.mistakes;
-        setMessage(`Not quite — ${left} guess${left === 1 ? "" : "es"} left`);
+        if (result.oneAway) {
+          setMessage(`One away — ${left} guess${left === 1 ? "" : "es"} left`);
+        } else {
+          setMessage(`Not quite — ${left} guess${left === 1 ? "" : "es"} left`);
+        }
         setTimeout(() => setMessage(null), 2200);
       });
     });
@@ -176,6 +181,113 @@ export default function Board({
         gap: "0.625rem",
       }}
     >
+      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+        <button
+          type="button"
+          onClick={() => setShowHowToPlay((prev) => !prev)}
+          style={{
+            border: "1px solid var(--color-border)",
+            borderRadius: "999px",
+            background: "var(--color-surface)",
+            color: "var(--color-text)",
+            fontSize: "0.75rem",
+            fontWeight: 700,
+            letterSpacing: "0.04em",
+            textTransform: "uppercase",
+            padding: "0.28rem 0.7rem",
+            cursor: "pointer",
+          }}
+        >
+          {showHowToPlay ? "Hide help" : "How to play"}
+        </button>
+      </div>
+
+      {showHowToPlay && (
+        <section
+          style={{
+            border: "1px solid var(--color-border)",
+            borderRadius: "var(--radius)",
+            background: "var(--color-surface)",
+            boxShadow: "var(--shadow-sm)",
+            padding: "1rem 1rem 0.9rem",
+            display: "flex",
+            flexDirection: "column",
+            gap: "0.5rem",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "start", justifyContent: "space-between", gap: "0.5rem" }}>
+            <h2 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 800, color: "var(--color-text)" }}>
+              How to Play
+            </h2>
+            <button
+              type="button"
+              onClick={() => setShowHowToPlay(false)}
+              aria-label="Close how to play"
+              style={{
+                border: "none",
+                background: "transparent",
+                color: "var(--color-text-muted)",
+                fontSize: "1.25rem",
+                lineHeight: 1,
+                cursor: "pointer",
+                padding: 0,
+              }}
+            >
+              ×
+            </button>
+          </div>
+
+          <p style={{ margin: 0, color: "var(--color-text)", fontSize: "0.92rem", lineHeight: 1.45 }}>
+            Create four groups of four words that share something in common.
+          </p>
+
+          <ul style={{ margin: "0.1rem 0 0.2rem 1.1rem", padding: 0, color: "var(--color-text)", lineHeight: 1.45 }}>
+            <li>Select 4 words and press <strong>Submit</strong>.</li>
+            <li>If you miss 4 times, the game ends.</li>
+            <li>If you get 3 out of 4, you will see <strong>One away</strong>.</li>
+          </ul>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem" }}>
+            <span style={{ fontWeight: 700, fontSize: "0.83rem", color: "var(--color-text)" }}>
+              Difficulty colors
+            </span>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "0.45rem" }}>
+              {[
+                { label: "Straightforward", color: "#f2d763" },
+                { label: "Moderate", color: "#8bbf50" },
+                { label: "Tricky", color: "#8ea7d9" },
+                { label: "Devious", color: "#a171be" },
+              ].map((item) => (
+                <span
+                  key={item.label}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "0.35rem",
+                    border: "1px solid var(--color-border)",
+                    borderRadius: "999px",
+                    padding: "0.2rem 0.55rem 0.2rem 0.3rem",
+                    fontSize: "0.76rem",
+                    color: "var(--color-text-muted)",
+                    background: "rgba(255,255,255,0.4)",
+                  }}
+                >
+                  <span
+                    style={{
+                      width: "0.72rem",
+                      height: "0.72rem",
+                      borderRadius: "999px",
+                      background: item.color,
+                    }}
+                  />
+                  {item.label}
+                </span>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* Solved / revealed group tiles */}
       {displayGroups.map((group) => (
         <div
