@@ -1,5 +1,6 @@
 /* ============================================================
-   Global CSS — BKST NYC Connections
+   Global CSS — The Akshar Times
+   Design system: warm editorial / light mode
    ============================================================ */
 
 *, *::before, *::after {
@@ -9,30 +10,56 @@
 }
 
 :root {
-  /* Palette — difficulty tiers */
-  --color-d1: #F9DF6D; /* yellow  — easiest  */
-  --color-d2: #A0C35A; /* green               */
-  --color-d3: #B0C4EF; /* blue                */
-  --color-d4: #BA81C5; /* purple — hardest    */
+  /* ── Difficulty palette ───────────────────────────── */
+  --color-d1: #F9DF6D; /* yellow  — easiest */
+  --color-d2: #A0C35A; /* green              */
+  --color-d3: #B0C4EF; /* blue               */
+  --color-d4: #BA81C5; /* purple — hardest   */
 
-  /* UI tokens */
-  --color-bg: #1a1a2e;
-  --color-surface: #16213e;
-  --color-card: #0f3460;
-  --color-card-selected: #e94560;
-  --color-text: #eaeaea;
-  --color-text-muted: #888;
-  --color-border: rgba(255,255,255,0.08);
+  /* ── Light editorial palette ─────────────────────── */
+  --color-bg:               #F7F5F2;
+  --color-surface:          #FFFFFF;
+  --color-card:             #ECEAE6;
+  --color-card-hover:       #E3E1DD;
+  --color-card-selected:    #1C1C1E;
+  --color-text:             #1C1C1E;
+  --color-text-muted:       #8A8A8E;
+  --color-text-on-dark:     #FFFFFF;
+  --color-border:           rgba(0, 0, 0, 0.09);
+  --color-border-strong:    rgba(0, 0, 0, 0.18);
+  --color-error:            #C0392B;
+  --color-error-bg:         #FEF2F2;
+  --color-success:          #2E7D32;
+  --color-success-bg:       #F0FDF4;
 
-  --radius: 8px;
-  --transition: 150ms ease;
+  /* ── Shadows ──────────────────────────────────────── */
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.06);
+  --shadow-sm: 0 1px 4px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.07), 0 2px 4px rgba(0, 0, 0, 0.04);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.09), 0 2px 8px rgba(0, 0, 0, 0.05);
+
+  /* ── Border radius ────────────────────────────────── */
+  --radius-sm:  6px;
+  --radius:     10px;
+  --radius-md:  12px;
+  --radius-lg:  16px;
+  --radius-xl:  24px;
+
+  /* ── Transitions ─────────────────────────────────── */
+  --transition-fast: 100ms ease;
+  --transition:      150ms ease;
+  --transition-slow: 280ms ease;
 }
 
 html, body {
   height: 100%;
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family: var(--font-inter, 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif);
   background: var(--color-bg);
   color: var(--color-text);
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 a {
@@ -52,44 +79,44 @@ button {
 /* Wrong guess — horizontal shake */
 @keyframes shake {
   0%,  100% { transform: translateX(0); }
-  15%        { transform: translateX(-8px); }
-  30%        { transform: translateX(8px); }
-  45%        { transform: translateX(-6px); }
-  60%        { transform: translateX(6px); }
-  75%        { transform: translateX(-3px); }
+  15%        { transform: translateX(-7px); }
+  30%        { transform: translateX(7px); }
+  45%        { transform: translateX(-5px); }
+  60%        { transform: translateX(5px); }
+  75%        { transform: translateX(-2px); }
 }
 
 /* Card selected — quick pop */
 @keyframes pop-in {
-  0%   { transform: scale(0.92); opacity: 0.7; }
-  60%  { transform: scale(1.06); }
+  0%   { transform: scale(0.93); opacity: 0.7; }
+  55%  { transform: scale(1.05); }
   100% { transform: scale(1);    opacity: 1;   }
 }
 
-/* Board load — cards fade up with stagger via animation-delay */
+/* Board load — cards fade up with stagger */
 @keyframes fade-in-up {
-  from { opacity: 0; transform: translateY(10px); }
+  from { opacity: 0; transform: translateY(12px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 
 /* Solved group reveal — expand down */
 @keyframes group-reveal {
-  from { opacity: 0; transform: scaleY(0.6); }
+  from { opacity: 0; transform: scaleY(0.5); }
   to   { opacity: 1; transform: scaleY(1); }
 }
 
 /* Mistake dot pulse when newly filled */
 @keyframes mistake-pulse {
   0%   { transform: scale(1); }
-  40%  { transform: scale(1.7); }
-  70%  { transform: scale(0.9); }
+  35%  { transform: scale(1.65); }
+  65%  { transform: scale(0.9); }
   100% { transform: scale(1); }
 }
 
-/* Game-over banner fade in */
+/* Generic fade-in for messages */
 @keyframes fade-in {
-  from { opacity: 0; }
-  to   { opacity: 1; }
+  from { opacity: 0; transform: translateY(-3px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 /* ============================================================
@@ -97,19 +124,25 @@ button {
    ============================================================ */
 
 .word-card {
-  transition: background 120ms ease, transform 120ms ease, filter 120ms ease;
+  transition:
+    background var(--transition),
+    transform var(--transition),
+    box-shadow var(--transition);
 }
 
-.word-card:hover:not(:disabled) {
-  filter: brightness(1.12);
+.word-card:hover:not(:disabled):not([aria-pressed="true"]) {
+  background: var(--color-card-hover) !important;
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
 }
 
 .word-card:active:not(:disabled) {
   transform: scale(0.95) !important;
+  box-shadow: none !important;
 }
 
 .word-card.shake {
-  animation: shake 0.55s ease-in-out;
+  animation: shake 0.52s ease-in-out;
 }
 
 .word-card.selected {
@@ -117,7 +150,7 @@ button {
 }
 
 /* ============================================================
-   Board card entrance (stagger via inline animation-delay)
+   Card entrance (stagger via inline animation-delay)
    ============================================================ */
 
 .card-entrance {
@@ -129,7 +162,7 @@ button {
    ============================================================ */
 
 .group-reveal {
-  animation: group-reveal 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  animation: group-reveal 0.38s cubic-bezier(0.34, 1.4, 0.64, 1) both;
   transform-origin: top center;
 }
 
@@ -139,17 +172,18 @@ button {
 
 .mistake-dot {
   display: inline-block;
-  width: 12px;
-  height: 12px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
-  border: 1px solid rgba(255,255,255,0.15);
-  background: var(--color-border);
-  transition: background 200ms ease;
+  background: rgba(0, 0, 0, 0.12);
+  border: 1.5px solid rgba(0, 0, 0, 0.15);
+  transition: background var(--transition), border-color var(--transition);
 }
 
 .mistake-dot--filled {
-  background: var(--color-card-selected);
-  animation: mistake-pulse 0.4s ease-out;
+  background: var(--color-error);
+  border-color: var(--color-error);
+  animation: mistake-pulse 0.42s ease-out;
 }
 
 /* ============================================================
@@ -157,49 +191,139 @@ button {
    ============================================================ */
 
 .game-over-message {
-  animation: fade-in 0.5s ease both;
+  animation: fade-in 0.45s ease both;
   text-align: center;
-  padding: 1rem;
+  padding: 0.875rem 1.25rem;
   border-radius: var(--radius);
   border: 1px solid var(--color-border);
   background: var(--color-surface);
   font-weight: 600;
+  font-size: 0.95rem;
+  box-shadow: var(--shadow-sm);
+  color: var(--color-text);
 }
 
 /* ============================================================
-   Responsive
+   Shared form inputs
+   ============================================================ */
+
+.field-input {
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius);
+  border: 1.5px solid var(--color-border-strong);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 1rem;
+  font-family: inherit;
+  width: 100%;
+  outline: none;
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+
+.field-input:focus {
+  border-color: var(--color-text);
+  box-shadow: 0 0 0 3px rgba(28, 28, 30, 0.08);
+}
+
+.field-input::placeholder {
+  color: var(--color-text-muted);
+}
+
+.field-input--error {
+  border-color: var(--color-error) !important;
+}
+
+.field-input--error:focus {
+  box-shadow: 0 0 0 3px rgba(192, 57, 43, 0.12) !important;
+}
+
+/* ============================================================
+   Admin layout
    ============================================================ */
 
 /* Admin tools — side by side on desktop, stacked on mobile */
 .admin-tools-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 2rem;
+  gap: 1.5rem;
 }
 
-/* Leaderboard — scrollable on narrow viewports */
+/* Admin card/panel */
+.admin-panel {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 1.5rem;
+  box-shadow: var(--shadow-xs);
+}
+
+.admin-section-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--color-border);
+  margin-bottom: 1rem;
+}
+
+/* ============================================================
+   Leaderboard
+   ============================================================ */
+
 .leaderboard-scroll {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
+  border-radius: var(--radius-md);
 }
 
 .leaderboard-table {
   min-width: 480px;
+  background: var(--color-surface);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--color-border);
 }
+
+.leaderboard-row {
+  transition: background var(--transition-fast);
+}
+
+.leaderboard-row:hover {
+  background: var(--color-bg) !important;
+}
+
+/* ============================================================
+   Login page submit button
+   ============================================================ */
+
+.btn-login {
+  transition: opacity var(--transition), transform var(--transition-fast);
+}
+
+.btn-login:hover {
+  opacity: 0.88;
+}
+
+.btn-login:active {
+  transform: scale(0.98);
+}
+
+/* ============================================================
+   Responsive
+   ============================================================ */
 
 @media (max-width: 640px) {
   .admin-tools-grid {
     grid-template-columns: 1fr;
   }
 
-  /* Tighten play page padding on mobile */
   .play-main {
-    padding: 1rem 0.5rem;
+    padding: 0.75rem 0.5rem;
   }
 
-  /* Smaller card text on very narrow screens */
   .word-card {
     font-size: 0.75rem !important;
-    padding: 0.6rem 0.25rem !important;
+    padding: 0.5rem 0.25rem !important;
   }
 }
