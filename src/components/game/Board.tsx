@@ -181,7 +181,7 @@ export default function Board({
     prevRectsRef.current = new Map();
   }, [solvingState]);
 
-  // ── Merge phase completion ──────────────────────────────
+  // ── Merge phase — swap cards for group tile ─────────────
   useEffect(() => {
     if (!solvingState || solvingState.phase !== "merge") return;
 
@@ -206,7 +206,7 @@ export default function Board({
           setTimeout(() => setMessage(null), 2000);
         }
       }
-    }, 380);
+    }, 180);
 
     return () => clearTimeout(timer);
   }, [solvingState, router]);
@@ -588,8 +588,6 @@ export default function Board({
         >
           {orderedWords.map((word, i) => {
             const isSolving = solvingState?.wordIds.has(word.id) ?? false;
-            const isMerging =
-              isSolving && solvingState?.phase === "merge";
 
             return (
               <div
@@ -610,11 +608,6 @@ export default function Board({
                   text={word.text}
                   selected={selectedIds.includes(word.id) || isSolving}
                   shaking={shakingIds.includes(word.id)}
-                  merging={
-                    isMerging
-                      ? solvingState!.group.colorTheme
-                      : undefined
-                  }
                   onClick={handleSelect}
                 />
               </div>

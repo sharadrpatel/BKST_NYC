@@ -5,7 +5,6 @@ interface WordCardProps {
   text: string;
   selected: boolean;
   shaking: boolean;
-  merging?: string;
   onClick: (id: string) => void;
 }
 
@@ -14,14 +13,12 @@ export default function WordCard({
   text,
   selected,
   shaking,
-  merging,
   onClick,
 }: WordCardProps) {
   const classes = [
     "word-card",
-    selected && !merging ? "selected" : "",
+    selected ? "selected" : "",
     shaking ? "shake" : "",
-    merging ? "merging" : "",
   ]
     .filter(Boolean)
     .join(" ");
@@ -32,8 +29,8 @@ export default function WordCard({
       onClick={() => onClick(id)}
       aria-pressed={selected}
       style={{
-        background: merging || (selected ? "var(--color-card-selected)" : "var(--color-card)"),
-        color: merging ? "transparent" : selected ? "var(--color-text-on-dark)" : "var(--color-text)",
+        background: selected ? "var(--color-card-selected)" : "var(--color-card)",
+        color: selected ? "var(--color-text-on-dark)" : "var(--color-text)",
         border: "none",
         borderRadius: "var(--radius)",
         padding: "1rem 0.5rem",
@@ -50,7 +47,7 @@ export default function WordCard({
         justifyContent: "center",
         textAlign: "center",
         lineHeight: 1.2,
-        boxShadow: selected && !merging ? "var(--shadow-sm)" : "none",
+        boxShadow: selected ? "var(--shadow-sm)" : "none",
       }}
     >
       {text}
