@@ -155,7 +155,7 @@ export default function Board({
           ];
 
       const anim = card.animate(keyframes, {
-        duration: 600,
+        duration: 850,
         easing: "cubic-bezier(0.25, 1, 0.5, 1)",
         fill: "both",
       });
