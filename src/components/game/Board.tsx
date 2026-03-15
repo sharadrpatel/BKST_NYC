@@ -282,7 +282,6 @@ export default function Board({
           true,
         );
 
-<<<<<<< HEAD
         prevRectsRef.current = snapshotPositions();
         flipDoneRef.current = false;
         pendingResultRef.current = result;
@@ -295,17 +294,6 @@ export default function Board({
           wordIds: new Set(result.wordIds),
           phase: "gather",
         });
-=======
-        if (result.gameOver && result.status === "WON") {
-          setMessage(`You won! Score: ${result.score}`);
-          setGameOver(true);
-          setTimeout(() => router.push("/play/review"), 15000);
-        } else {
-          const pts = DIFFICULTY_POINTS[result.difficulty] ?? 0;
-          setMessage(`✓ ${result.categoryTitle} (+${pts} pts)`);
-          setTimeout(() => setMessage(null), 2000);
-        }
->>>>>>> aa3f9c8 (change behavior of end screen)
         return;
       }
 
@@ -327,7 +315,7 @@ export default function Board({
               : "No more guesses \u2014 better luck next time!";
           setMessage(msg);
           setGameOver(true);
-          setTimeout(() => router.push("/play/review"), 15000);
+          setTimeout(() => router.push("/leaderboard"), 2500);
         });
         return;
       }
@@ -682,23 +670,7 @@ export default function Board({
       </div>
 
       {/* Controls */}
-      {gameOver ? (
-        <div
-          style={{
-            display: "flex",
-            gap: "0.6rem",
-            justifyContent: "center",
-            paddingTop: "0.25rem",
-          }}
-        >
-          <SystemButton variant="ghost" onClick={() => router.push("/play/review")}>
-            Review answers
-          </SystemButton>
-          <SystemButton variant="primary" onClick={() => router.push("/leaderboard")}>
-            View leaderboard
-          </SystemButton>
-        </div>
-      ) : (
+      {!gameOver && (
         <div
           style={{
             display: "flex",

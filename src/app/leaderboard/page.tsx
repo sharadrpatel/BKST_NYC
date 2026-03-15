@@ -1,7 +1,6 @@
 // Public Server Component — no auth required.
 // Reads the session cookie only to highlight the current player's row.
 
-import Link from "next/link";
 import { eq, or, desc, asc, and } from "drizzle-orm";
 import { db } from "@/db";
 import { gameSessions, players } from "@/db/schema";
@@ -137,22 +136,6 @@ export default async function LeaderboardPage() {
           >
             {rows.length} completed session{rows.length !== 1 ? "s" : ""}
           </p>
-          {mySessionId && (
-            <Link
-              href="/play/review"
-              style={{
-                display: "inline-block",
-                marginTop: "0.5rem",
-                fontSize: "0.82rem",
-                fontWeight: 600,
-                color: "var(--color-text-muted)",
-                textDecoration: "underline",
-                textUnderlineOffset: "2px",
-              }}
-            >
-              Review your completed puzzle
-            </Link>
-          )}
         </div>
 
         {/* "Your result" banner */}
