@@ -24,7 +24,7 @@ export default async function PlayPage() {
     .limit(1);
 
   if (!session) redirect("/");
-  if (session.status !== "IN_PROGRESS") redirect("/leaderboard");
+  if (session.status !== "IN_PROGRESS") redirect("/play/review");
 
   // Fetch all 16 words for this puzzle with their category IDs.
   // category_id is used server-side only for group reconstruction below;
