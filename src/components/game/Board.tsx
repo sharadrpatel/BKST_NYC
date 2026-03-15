@@ -35,6 +35,9 @@ interface BoardProps {
   words: Word[];
   initialDisplayGroups: DisplayGroup[];
   initialMistakes: number;
+  isCompleted?: boolean;
+  initialScore?: number;
+  initialGameStatus?: "WON" | "LOST";
 }
 
 interface SolvingState {
@@ -52,11 +55,25 @@ const DIFFICULTY_LABEL: Record<number, string> = {
   4: "Devious",
 };
 
+function initialMessage(
+  isCompleted: boolean | undefined,
+  status: "WON" | "LOST" | undefined,
+  score: number | undefined,
+): string | null {
+  if (!isCompleted) return null;
+  if (status === "WON") return `You won! Score: ${score ?? 0}`;
+  if ((score ?? 0) > 0) return `Game over \u2014 Score: ${score}`;
+  return "No more guesses \u2014 better luck next time!";
+}
+
 export default function Board({
   sessionId,
   words,
   initialDisplayGroups,
   initialMistakes,
+  isCompleted,
+  initialScore,
+  initialGameStatus,
 }: BoardProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -67,9 +84,19 @@ export default function Board({
   const [mistakes, setMistakes] = useState(initialMistakes);
   const [shakingIds, setShakingIds] = useState<string[]>([]);
   const [isAnimating, setIsAnimating] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
-  const [gameOver, setGameOver] = useState(false);
-  const [showHowToPlay, setShowHowToPlay] = useState(true);
+  const [message, setMessage] = useState<string | null>(() =>
+    initialMessage(isCompleted, initialGameStatus, initialScore),
+  );
+  const [gameOver, setGameOver] = useState(isCompleted ?? false);
+  const [showHowToPlay, setShowHowToPlay] = useState(!isCompleted);
+
+  // Tracks the auto-redirect timer so it can be cancelled by the leaderboard button
+  const redirectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function handleGoToLeaderboard() {
+    if (redirectTimerRef.current) clearTimeout(redirectTimerRef.current);
+    router.push("/leaderboard");
+  }
 
   // Solve animation
   const [solvingState, setSolvingState] = useState<SolvingState | null>(null);
@@ -200,7 +227,10 @@ export default function Board({
         if (result.gameOver && result.status === "WON") {
           setMessage(`You won! Score: ${result.score}`);
           setGameOver(true);
-          setTimeout(() => router.push("/leaderboard"), 2500);
+          redirectTimerRef.current = setTimeout(
+            () => router.push("/leaderboard"),
+            15000,
+          );
         } else {
           const pts = DIFFICULTY_POINTS[result.difficulty] ?? 0;
           setMessage(`\u2713 ${result.categoryTitle} (+${pts} pts)`);
@@ -315,7 +345,10 @@ export default function Board({
               : "No more guesses \u2014 better luck next time!";
           setMessage(msg);
           setGameOver(true);
-          setTimeout(() => router.push("/leaderboard"), 2500);
+          redirectTimerRef.current = setTimeout(
+            () => router.push("/leaderboard"),
+            15000,
+          );
         });
         return;
       }
@@ -670,7 +703,7 @@ export default function Board({
       </div>
 
       {/* Controls */}
-      {!gameOver && (
+      {!gameOver ? (
         <div
           style={{
             display: "flex",
@@ -694,6 +727,19 @@ export default function Board({
             {isPending
               ? "Checking\u2026"
               : `Submit${selectedIds.length === 4 ? "" : ` (${selectedIds.length}/4)`}`}
+          </SystemButton>
+        </div>
+      ) : (
+        <div
+          style={{
+            display: "flex",
+            gap: "0.6rem",
+            justifyContent: "center",
+            paddingTop: "0.25rem",
+          }}
+        >
+          <SystemButton variant="primary" onClick={handleGoToLeaderboard}>
+            View leaderboard
           </SystemButton>
         </div>
       )}

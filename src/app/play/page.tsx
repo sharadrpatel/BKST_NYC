@@ -24,7 +24,10 @@ export default async function PlayPage() {
     .limit(1);
 
   if (!session) redirect("/");
-  if (session.status !== "IN_PROGRESS") redirect("/leaderboard");
+  // Allow WON/LOST sessions through for review; only reject truly unknown states
+  if (session.status !== "IN_PROGRESS" && session.status !== "WON" && session.status !== "LOST") {
+    redirect("/");
+  }
 
   // Fetch all 16 words for this puzzle with their category IDs.
   // category_id is used server-side only for group reconstruction below;
@@ -133,6 +136,13 @@ export default async function PlayPage() {
           words={wordData}
           initialDisplayGroups={initialDisplayGroups}
           initialMistakes={session.mistakes}
+          isCompleted={session.status === "WON" || session.status === "LOST"}
+          initialScore={session.score ?? 0}
+          initialGameStatus={
+            session.status === "WON" || session.status === "LOST"
+              ? session.status
+              : undefined
+          }
         />
       </div>
     </main>

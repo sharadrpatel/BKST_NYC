@@ -143,9 +143,10 @@ export async function login(formData: FormData): Promise<never> {
     redirect("/?error=invalid");
   }
 
-  // Scored player — completed game blocks further play
+  // Scored player — completed game: show review screen instead of blocking entirely
   if (result.mode === "scored" && result.status === "DONE") {
-    redirect("/leaderboard");
+    await setSessionCookie(result.sessionId);
+    redirect("/play");
   }
 
   let sessionId: string;

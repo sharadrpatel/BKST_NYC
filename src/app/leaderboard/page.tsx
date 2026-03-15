@@ -366,21 +366,38 @@ export default async function LeaderboardPage() {
           </div>
         )}
 
-        <a
-          href="/"
-          style={{
-            alignSelf: "flex-start",
-            color: "var(--color-text-muted)",
-            fontSize: "0.85rem",
-            display: "flex",
-            alignItems: "center",
-            gap: "0.3rem",
-            padding: "0.4rem 0",
-            transition: "color var(--transition)",
-          }}
-        >
-          ← Back to home
-        </a>
+        <div style={{ display: "flex", gap: "1.25rem", alignItems: "center" }}>
+          {mySessionId && (
+            <a
+              href="/play"
+              style={{
+                color: "var(--color-text-muted)",
+                fontSize: "0.85rem",
+                display: "flex",
+                alignItems: "center",
+                gap: "0.3rem",
+                padding: "0.4rem 0",
+                transition: "color var(--transition)",
+              }}
+            >
+              ← Review your puzzle
+            </a>
+          )}
+          <a
+            href="/"
+            style={{
+              color: "var(--color-text-muted)",
+              fontSize: "0.85rem",
+              display: "flex",
+              alignItems: "center",
+              gap: "0.3rem",
+              padding: "0.4rem 0",
+              transition: "color var(--transition)",
+            }}
+          >
+            ← Back to home
+          </a>
+        </div>
       </div>
     </main>
   );
