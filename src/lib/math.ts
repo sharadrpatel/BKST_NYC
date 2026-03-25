@@ -20,9 +20,10 @@ export function formatDuration(startTime: Date, endTime: Date): string {
 /**
  * Score formula:
  *   difficulty points  = sum of DIFFICULTY_POINTS for each correctly solved group (max 1000)
- *   speed bonus        = max(0, 500 - ((seconds - 30) * 5))          — capped at [0, 500]
+ *   speed bonus        = 500                                           — capped at 500
  *   mistake penalty    = mistakes * 150
- *   final              = max(0, difficultyPoints + speedBonus - penalty)
+ *   time penalty       = (elapsedSeconds / 60) * 2
+ *   final              = max(0, difficultyPoints + speedBonus - mistakePenalty - timePenalty)
  *
  * Returns 0 for LOST sessions.
  */
@@ -35,7 +36,16 @@ export function computeScore(
 ): number {
   if (status === "LOST") return 0;
 
-  const seconds = Math.floor((endTime.getTime() - startTime.getTime()) / 1000);
-  const speedBonus = Math.max(0, 500 - Math.max(0, seconds - 30) * 5);
-  return Math.max(0, difficultyPoints + speedBonus - mistakes * 150);
+  const elapsedSeconds = Math.max(0, Math.floor((endTime.getTime() - startTime.getTime()) / 1000));
+  const minutes = elapsedSeconds / 60;
+  const speedBonus = 500;
+  const mistakePenalty = mistakes * 150;
+  const timePenalty = minutes * 2;
+  const rawScore = difficultyPoints + speedBonus - mistakePenalty - timePenalty;
+
+  if (difficultyPoints > 0 && rawScore > 0) {
+    return Math.max(1, Math.round(rawScore));
+  }
+
+  return Math.max(0, Math.round(rawScore));
 }

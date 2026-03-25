@@ -375,7 +375,7 @@ export default function Board({
     <div
       style={{
         width: "100%",
-        maxWidth: 560,
+        maxWidth: "min(560px, 100vw - 2rem)",
         display: "flex",
         flexDirection: "column",
         gap: "0.625rem",
@@ -618,6 +618,7 @@ export default function Board({
             display: "grid",
             gridTemplateColumns: "repeat(4, 1fr)",
             gap: "0.5rem",
+            width: "100%",
           }}
         >
           {orderedWords.map((word, i) => {
@@ -635,6 +636,7 @@ export default function Board({
                     ? `${i * 50}ms`
                     : undefined,
                   position: "relative",
+                  minWidth: 0,
                 }}
               >
                 <WordCard

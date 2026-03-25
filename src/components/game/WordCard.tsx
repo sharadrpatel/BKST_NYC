@@ -48,6 +48,11 @@ export default function WordCard({
         textAlign: "center",
         lineHeight: 1.2,
         boxShadow: selected ? "var(--shadow-sm)" : "none",
+        minWidth: 0,
+        overflow: "hidden",
+        whiteSpace: "normal",
+        overflowWrap: "anywhere",
+        wordBreak: "break-word",
       }}
     >
       {text}

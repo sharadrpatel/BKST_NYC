@@ -150,6 +150,7 @@ button {
    ============================================================ */
 
 .word-card {
+  min-width: 0;
   transition:
     background 280ms var(--ease-out-smooth),
     color 280ms var(--ease-out-smooth),
